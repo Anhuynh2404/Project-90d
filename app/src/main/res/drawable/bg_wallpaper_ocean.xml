@@ -1,0 +1,43 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="400dp"
+    android:height="800dp"
+    android:viewportWidth="400"
+    android:viewportHeight="800">
+
+    <!-- Base Ocean Horizon Gradient -->
+    <path android:pathData="M0,0h400v800h-400z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="200"
+                android:startY="0"
+                android:endX="200"
+                android:endY="800"
+                android:type="linear">
+                <item android:offset="0.0" android:color="#FFE0F2FE" />
+                <item android:offset="0.5" android:color="#FFBAE6FD" />
+                <item android:offset="1.0" android:color="#FF38BDF8" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Soft Light Orb -->
+    <path
+        android:pathData="M90,150m-85,0a85,85 0,1 1,170 0a85,85 0,1 1,-170 0"
+        android:fillColor="#66FFFFFF" />
+
+    <!-- Distant Wave Layer 1 -->
+    <path
+        android:pathData="M0,440 C100,390 210,480 320,425 C360,405 385,415 400,425 L400,800 L0,800 Z"
+        android:fillColor="#550284C7" />
+
+    <!-- Mid Wave Layer 2 -->
+    <path
+        android:pathData="M0,555 C130,505 240,600 355,540 C378,528 390,535 400,540 L400,800 L0,800 Z"
+        android:fillColor="#660369A1" />
+
+    <!-- Deep Marine Wave Layer 3 -->
+    <path
+        android:pathData="M0,670 C140,630 265,700 400,645 L400,800 L0,800 Z"
+        android:fillColor="#770C4A6E" />
+</vector>

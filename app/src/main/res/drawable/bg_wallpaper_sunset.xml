@@ -1,0 +1,46 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="400dp"
+    android:height="800dp"
+    android:viewportWidth="400"
+    android:viewportHeight="800">
+
+    <!-- Base Warm Sunset Sky Gradient -->
+    <path android:pathData="M0,0h400v800h-400z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="200"
+                android:startY="0"
+                android:endX="200"
+                android:endY="800"
+                android:type="linear">
+                <item android:offset="0.0" android:color="#FFFFF7ED" />
+                <item android:offset="0.48" android:color="#FFFED7AA" />
+                <item android:offset="1.0" android:color="#FFFB923C" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Warm Setting Sun -->
+    <path
+        android:pathData="M200,220m-95,0a95,95 0,1 1,190 0a95,95 0,1 1,-190 0"
+        android:fillColor="#55FDBA74" />
+    <path
+        android:pathData="M200,220m-60,0a60,60 0,1 1,120 0a60,60 0,1 1,-120 0"
+        android:fillColor="#88FFFFFF" />
+
+    <!-- Warm Amber Dunes -->
+    <path
+        android:pathData="M0,460 C110,410 230,490 340,435 C370,420 390,425 400,435 L400,800 L0,800 Z"
+        android:fillColor="#55EA580C" />
+
+    <!-- Terracotta Ridge -->
+    <path
+        android:pathData="M0,575 C135,525 250,605 400,550 L400,800 L0,800 Z"
+        android:fillColor="#66C2410C" />
+
+    <!-- Deep Sunset Silhouette -->
+    <path
+        android:pathData="M0,680 C150,640 275,705 400,660 L400,800 L0,800 Z"
+        android:fillColor="#777C2D12" />
+</vector>

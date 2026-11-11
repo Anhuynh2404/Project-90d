@@ -1,6 +1,7 @@
 package com.example.ui.viewmodel
 
 import android.app.Application
+import android.content.Context
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.Project90Application
@@ -15,6 +16,9 @@ import com.example.data.local.entity.UserEntity
 import com.example.sensor.StepCounterManager
 import com.example.service.HabitNotificationHelper
 import com.example.service.PersistentHabitNotificationService
+import com.example.ui.theme.AppBackgroundPreset
+import com.example.ui.theme.AppThemePreset
+import com.example.ui.theme.DynamicThemeState
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -25,6 +29,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 
 enum class AppTab(val title: String, val categoryTag: String) {
     DASHBOARD("Tổng Quan", "ALL"),
@@ -39,12 +44,16 @@ enum class AppTab(val title: String, val categoryTag: String) {
 data class DashboardSummary(
     val dayNumber: Int = 1,
     val totalDays: Int = 90,
-    val daysRemainingToFeb: Long = 85,
-    val progressPercent: Float = 0.1f,
+    val daysRemainingToFeb: Long = 86,
+    val progressPercent: Float = 0.04f,
     val completedTodayCount: Int = 0,
     val totalDailyHabitsCount: Int = 12,
     val streakWarning: Boolean = false,
-    val currentStreak: Int = 0
+    val currentStreak: Int = 0,
+    val startDateEpochDay: Long = LocalDate.of(2026, 11, 7).toEpochDay(),
+    val startDateFormatted: String = "07/11/2026",
+    val isChallengeCompleted: Boolean = false,
+    val isBeforeStart: Boolean = false
 )
 
 data class PersonalGrowthSummary(
@@ -59,6 +68,15 @@ data class PersonalGrowthSummary(
 
 class Project90ViewModel(application: Application) : AndroidViewModel(application) {
 
+    companion object {
+        const val PREFS_NAME = "project90_user_prefs"
+        const val KEY_THEME_PRESET = "theme_preset_id"
+        const val KEY_BACKGROUND_PRESET = "background_preset_id"
+        const val KEY_START_DATE_EPOCH = "start_date_epoch_day"
+        const val KEY_HAS_CONFIGURED_START_DATE = "has_configured_start_date"
+    }
+
+    private val prefs = application.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
     private val repository = (application as Project90Application).repository
     val stepCounterManager = StepCounterManager(application)
 
@@ -68,6 +86,30 @@ class Project90ViewModel(application: Application) : AndroidViewModel(applicatio
 
     private val _currentTab = MutableStateFlow(AppTab.DASHBOARD)
     val currentTab: StateFlow<AppTab> = _currentTab.asStateFlow()
+
+    // Dynamic Theme & Custom Background State (PHẦN 3)
+    private val initialTheme = AppThemePreset.fromId(prefs.getString(KEY_THEME_PRESET, AppThemePreset.ECO_GREEN.id))
+    private val initialBackground = AppBackgroundPreset.fromId(
+        prefs.getString(KEY_BACKGROUND_PRESET, AppBackgroundPreset.MISTY_BOTANICAL.id)
+    )
+
+    private val _themePreset = MutableStateFlow(initialTheme)
+    val themePreset: StateFlow<AppThemePreset> = _themePreset.asStateFlow()
+
+    private val _backgroundPreset = MutableStateFlow(initialBackground)
+    val backgroundPreset: StateFlow<AppBackgroundPreset> = _backgroundPreset.asStateFlow()
+
+    // Start Date Configuration & Onboarding Dialog State (PHẦN 4)
+    private val defaultStartEpoch = LocalDate.of(2026, 11, 7).toEpochDay()
+    private val _startDateEpochDay = MutableStateFlow(
+        prefs.getLong(KEY_START_DATE_EPOCH, defaultStartEpoch)
+    )
+    val startDateEpochDay: StateFlow<Long> = _startDateEpochDay.asStateFlow()
+
+    private val _showStartDateDialog = MutableStateFlow(
+        !prefs.getBoolean(KEY_HAS_CONFIGURED_START_DATE, false)
+    )
+    val showStartDateDialog: StateFlow<Boolean> = _showStartDateDialog.asStateFlow()
 
     val user: StateFlow<UserEntity?> = repository.userFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
@@ -201,40 +243,66 @@ class Project90ViewModel(application: Application) : AndroidViewModel(applicatio
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), PersonalGrowthSummary())
 
-    val dashboardSummary: StateFlow<DashboardSummary> = combine(user, habits, todayLogs) { u, hList, logs ->
+    private val dateFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy")
+
+    // PHẦN 4: Vòng tròn đếm ngược 90 ngày tính theo công thức (Ngày hiện tại - Ngày bắt đầu)
+    val dashboardSummary: StateFlow<DashboardSummary> = combine(
+        user,
+        habits,
+        todayLogs,
+        _startDateEpochDay
+    ) { u, hList, logs, configuredStartEpoch ->
         val dailyHabits = hList.filter { !it.isWeekly }
         val dailyHabitIds = dailyHabits.map { it.id }.toSet()
         val completedCount = logs.count { it.isCompleted && (dailyHabitIds.isEmpty() || it.habitId in dailyHabitIds) }
         val totalDaily = if (dailyHabits.isNotEmpty()) dailyHabits.size else 12
 
-        val officialStartEpoch = LocalDate.of(2026, 11, 7).toEpochDay()
-        val startDay = u?.startDateEpochDay ?: officialStartEpoch
-        val targetDay = u?.targetDateEpochDay ?: (startDay + 90)
-
-        val diffFromStart = (todayEpochDay - startDay).toInt()
-        val daysIntoJourney = if (diffFromStart < 0) {
-            0
+        val startDay = if (prefs.contains(KEY_START_DATE_EPOCH)) {
+            configuredStartEpoch
         } else {
-            (diffFromStart + 1).coerceIn(1, 90)
+            u?.startDateEpochDay ?: configuredStartEpoch
         }
-        val remaining = (targetDay - todayEpochDay).coerceAtLeast(0)
-        val progress = if (daysIntoJourney <= 0) 0f else (daysIntoJourney / 90f).coerceIn(0f, 1f)
 
-        val hasStreakRisk = daysIntoJourney > 0 && completedCount < totalDaily
+        // Công thức bắt buộc: Số ngày hiện tại = (Ngày hiện tại - Ngày bắt đầu)
+        val rawDiffDays = (todayEpochDay - startDay).toInt()
+        val isBeforeStart = rawDiffDays < 0
+        val isCompletedChallenge = rawDiffDays > 90
+        val currentDayNumber = if (isBeforeStart) 0 else rawDiffDays
+
+        val remainingDays = (90L - currentDayNumber.toLong()).coerceAtLeast(0L)
+        val progress = when {
+            isBeforeStart -> 0f
+            isCompletedChallenge -> 1f
+            else -> (currentDayNumber.toFloat() / 90f).coerceIn(0f, 1f)
+        }
+
+        val hasStreakRisk = !isBeforeStart && !isCompletedChallenge && completedCount < totalDaily
+        val formattedStart = try {
+            LocalDate.ofEpochDay(startDay).format(dateFormatter)
+        } catch (_: Exception) {
+            "07/11/2026"
+        }
 
         DashboardSummary(
-            dayNumber = daysIntoJourney,
+            dayNumber = currentDayNumber,
             totalDays = 90,
-            daysRemainingToFeb = remaining,
+            daysRemainingToFeb = remainingDays,
             progressPercent = progress,
             completedTodayCount = completedCount,
             totalDailyHabitsCount = totalDaily,
             streakWarning = hasStreakRisk,
-            currentStreak = u?.currentStreak ?: 0
+            currentStreak = u?.currentStreak ?: 0,
+            startDateEpochDay = startDay,
+            startDateFormatted = formattedStart,
+            isChallengeCompleted = isCompletedChallenge,
+            isBeforeStart = isBeforeStart
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), DashboardSummary())
 
     init {
+        DynamicThemeState.activePreset = initialTheme
+        DynamicThemeState.activeBackground = initialBackground
+
         stepCounterManager.startListening()
 
         viewModelScope.launch {
@@ -260,6 +328,43 @@ class Project90ViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun selectTab(tab: AppTab) {
         _currentTab.value = tab
+    }
+
+    // PHẦN 3: Thay đổi màu sắc chủ đề (Dynamic Theme) và Hình nền tùy chỉnh (Custom Background)
+    fun selectThemePreset(preset: AppThemePreset) {
+        _themePreset.value = preset
+        DynamicThemeState.activePreset = preset
+        prefs.edit().putString(KEY_THEME_PRESET, preset.id).apply()
+    }
+
+    fun selectBackgroundPreset(preset: AppBackgroundPreset) {
+        _backgroundPreset.value = preset
+        DynamicThemeState.activeBackground = preset
+        prefs.edit().putString(KEY_BACKGROUND_PRESET, preset.id).apply()
+    }
+
+    // PHẦN 4: Thiết lập Ngày bắt đầu (Start Date Configuration)
+    fun openStartDateDialog() {
+        _showStartDateDialog.value = true
+    }
+
+    fun dismissStartDateDialog() {
+        prefs.edit().putBoolean(KEY_HAS_CONFIGURED_START_DATE, true).apply()
+        _showStartDateDialog.value = false
+    }
+
+    fun updateStartDate(newStartEpochDay: Long) {
+        _startDateEpochDay.value = newStartEpochDay
+        prefs.edit()
+            .putLong(KEY_START_DATE_EPOCH, newStartEpochDay)
+            .putBoolean(KEY_HAS_CONFIGURED_START_DATE, true)
+            .apply()
+        _showStartDateDialog.value = false
+
+        viewModelScope.launch {
+            repository.resetOfficialStartDate(newStartEpochDay)
+            HabitNotificationHelper.postOrUpdateNotification(getApplication())
+        }
     }
 
     fun toggleHabit(habitId: String, currentCompleted: Boolean, currentProgress: Int, target: Int) {

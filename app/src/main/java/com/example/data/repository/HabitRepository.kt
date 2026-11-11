@@ -197,7 +197,7 @@ class HabitRepository(
         val targetDate = officialStartDate.plusDays(90)
 
         val existingUser = userDao.getUser().firstOrNull()
-        if (existingUser == null || existingUser.startDateEpochDay != officialStartDate.toEpochDay()) {
+        if (existingUser == null) {
             val initialUser = UserEntity(
                 id = 1,
                 name = "Kẻ Kỷ Luật Thép",
@@ -211,7 +211,6 @@ class HabitRepository(
                 totalExpense = 0L
             )
             userDao.insertOrUpdate(initialUser)
-            dailyLogDao.deleteAllLogs()
         }
 
         // Seed default Savings Goal funds if empty
@@ -513,6 +512,20 @@ class HabitRepository(
             )
         )
         evaluateStreak(dateEpochDay)
+    }
+
+    suspend fun resetOfficialStartDate(newStartEpochDay: Long) {
+        val existingUser = userDao.getUser().firstOrNull()
+        val updatedUser = (existingUser ?: UserEntity(
+            id = 1,
+            name = "Kẻ Kỷ Luật Thép",
+            startDateEpochDay = newStartEpochDay,
+            targetDateEpochDay = newStartEpochDay + 90L
+        )).copy(
+            startDateEpochDay = newStartEpochDay,
+            targetDateEpochDay = newStartEpochDay + 90L
+        )
+        userDao.insertOrUpdate(updatedUser)
     }
 
     private suspend fun evaluateStreak(dateEpochDay: Long) {

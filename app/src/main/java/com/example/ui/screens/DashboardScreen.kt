@@ -180,15 +180,7 @@ fun DashboardScreen(
     LazyColumn(
         modifier = modifier
             .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(
-                        MintSurface,
-                        EcoBackground,
-                        EcoBackground
-                    )
-                )
-            )
+            .background(Color.Transparent)
             .testTag("dashboard_screen"),
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(18.dp)
@@ -334,7 +326,11 @@ fun DashboardScreen(
                     }
                     Spacer(modifier = Modifier.width(10.dp))
                     Text(
-                        text = "Mỗi hành động nhỏ hôm nay tạo nên sự bứt phá phi thường ngày mai.",
+                        text = if (summary.isChallengeCompleted) {
+                            "Chúc mừng! Bạn đã chinh phục hoàn toàn thử thách 90 ngày kỷ luật thép!"
+                        } else {
+                            "Mỗi hành động nhỏ hôm nay tạo nên sự bứt phá phi thường ngày mai."
+                        },
                         style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
                         color = ForestGreen,
                         modifier = Modifier.weight(1f)
@@ -358,8 +354,8 @@ fun DashboardScreen(
                     .background(
                         Brush.verticalGradient(
                             colors = listOf(
-                                CardWhite.copy(alpha = 0.95f),
-                                MintSurface.copy(alpha = 0.90f),
+                                CardWhite.copy(alpha = 0.94f),
+                                MintSurface.copy(alpha = 0.88f),
                                 MintLight.copy(alpha = 0.65f)
                             )
                         )
@@ -375,18 +371,53 @@ fun DashboardScreen(
                         ),
                         shape = RoundedCornerShape(28.dp)
                     )
-                    .padding(horizontal = 18.dp, vertical = 20.dp)
+                    .padding(horizontal = 18.dp, vertical = 18.dp)
             ) {
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     modifier = Modifier.fillMaxWidth()
                 ) {
+                    // Start Date Config Pill inside Hero Card
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(CardWhite.copy(alpha = 0.85f))
+                            .border(1.dp, CardBorder, RoundedCornerShape(14.dp))
+                            .clickable { viewModel.openStartDateDialog() }
+                            .padding(horizontal = 12.dp, vertical = 7.dp)
+                            .testTag("dashboard_start_date_button")
+                    ) {
+                        Text(
+                            text = "Ngày bắt đầu: ${summary.startDateFormatted}",
+                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                            color = TextPrimary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Text(
+                            text = if (summary.isChallengeCompleted) "HOÀN THÀNH THỬ THÁCH • Đổi ngày" else "Đổi ngày bắt đầu",
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.ExtraBold),
+                            color = if (summary.isChallengeCompleted) SuccessGreen else ForestGreen,
+                            maxLines = 1,
+                            softWrap = false
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
                     Circular90DaysProgress(
                         dayNumber = summary.dayNumber,
                         totalDays = summary.totalDays,
                         daysRemainingToFeb = summary.daysRemainingToFeb,
                         currentStreak = summary.currentStreak,
-                        dailyCompletionFraction = dailyCompletionFraction
+                        dailyCompletionFraction = dailyCompletionFraction,
+                        isChallengeCompleted = summary.isChallengeCompleted,
+                        isBeforeStart = summary.isBeforeStart,
+                        startDateLabel = summary.startDateFormatted
                     )
 
                     Spacer(modifier = Modifier.height(14.dp))
@@ -396,7 +427,7 @@ fun DashboardScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(18.dp))
-                            .background(CardWhite.copy(alpha = 0.78f))
+                            .background(CardWhite.copy(alpha = 0.82f))
                             .border(1.dp, CardBorder.copy(alpha = 0.8f), RoundedCornerShape(18.dp))
                             .padding(vertical = 10.dp, horizontal = 12.dp),
                         horizontalArrangement = Arrangement.SpaceEvenly,
@@ -414,9 +445,9 @@ fun DashboardScreen(
                                 .background(CardBorder)
                         )
                         HeroMetricItem(
-                            label = "HOÀN THÀNH",
-                            value = "${(dailyCompletionFraction * 100).roundToInt()}%",
-                            accentColor = LeafGreen
+                            label = "TRẠNG THÁI",
+                            value = if (summary.isChallengeCompleted) "HOÀN THÀNH" else "${(dailyCompletionFraction * 100).roundToInt()}%",
+                            accentColor = if (summary.isChallengeCompleted) SuccessGreen else LeafGreen
                         )
                         Box(
                             modifier = Modifier
@@ -426,7 +457,7 @@ fun DashboardScreen(
                         )
                         HeroMetricItem(
                             label = "TIẾN ĐỘ 90 NGÀY",
-                            value = "${((summary.dayNumber.toFloat() / summary.totalDays.toFloat()) * 100).roundToInt().coerceIn(0, 100)}%",
+                            value = if (summary.isChallengeCompleted) "100%" else "${((summary.dayNumber.toFloat() / summary.totalDays.toFloat()) * 100).roundToInt().coerceIn(0, 100)}%",
                             accentColor = MarineAqua
                         )
                     }

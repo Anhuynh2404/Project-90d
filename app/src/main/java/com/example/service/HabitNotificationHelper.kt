@@ -248,12 +248,16 @@ object HabitNotificationHelper {
                     log?.isCompleted != true
                 }
 
+                val prefs = context.getSharedPreferences("project90_user_prefs", Context.MODE_PRIVATE)
                 val officialStartEpoch = LocalDate.of(2026, 11, 7).toEpochDay()
-                val startDay = user?.startDateEpochDay ?: officialStartEpoch
-                val targetDay = user?.targetDateEpochDay ?: (startDay + 90)
+                val startDay = if (prefs.contains("start_date_epoch_day")) {
+                    prefs.getLong("start_date_epoch_day", officialStartEpoch)
+                } else {
+                    user?.startDateEpochDay ?: officialStartEpoch
+                }
                 val diffFromStart = (todayEpochDay - startDay).toInt()
-                val dayNumber = if (diffFromStart < 0) 0 else (diffFromStart + 1).coerceIn(1, 90)
-                val daysRemaining = (targetDay - todayEpochDay).coerceAtLeast(0)
+                val dayNumber = if (diffFromStart < 0) 0 else diffFromStart
+                val daysRemaining = (90L - dayNumber.toLong()).coerceAtLeast(0L)
 
                 val completedCount = dailyHabits.size - pendingHabits.size
                 val currentStreak = user?.currentStreak ?: 0

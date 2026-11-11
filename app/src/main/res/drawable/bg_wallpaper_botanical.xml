@@ -1,0 +1,54 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="400dp"
+    android:height="800dp"
+    android:viewportWidth="400"
+    android:viewportHeight="800">
+
+    <!-- Base Soft Botanical Sky Gradient -->
+    <path android:pathData="M0,0h400v800h-400z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="200"
+                android:startY="0"
+                android:endX="200"
+                android:endY="800"
+                android:type="linear">
+                <item android:offset="0.0" android:color="#FFD8F3DC" />
+                <item android:offset="0.45" android:color="#FFB7E4C7" />
+                <item android:offset="1.0" android:color="#FF74C69D" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Soft Sun Halo -->
+    <path
+        android:pathData="M310,140m-95,0a95,95 0,1 1,190 0a95,95 0,1 1,-190 0"
+        android:fillColor="#55FFFFFF" />
+    <path
+        android:pathData="M310,140m-55,0a55,55 0,1 1,110 0a55,55 0,1 1,-110 0"
+        android:fillColor="#88FFFFFF" />
+
+    <!-- Distant Misty Botanical Hills -->
+    <path
+        android:pathData="M0,430 C95,380 185,460 290,410 C345,385 375,400 400,415 L400,800 L0,800 Z"
+        android:fillColor="#6652B788" />
+
+    <!-- Midground Forest Ridge -->
+    <path
+        android:pathData="M0,540 C110,490 215,575 330,515 C365,495 385,505 400,515 L400,800 L0,800 Z"
+        android:fillColor="#772D6A4F" />
+
+    <!-- Foreground Deep Botanical Canopy Silhouette -->
+    <path
+        android:pathData="M0,660 C120,615 260,685 400,630 L400,800 L0,800 Z"
+        android:fillColor="#881B4332" />
+
+    <!-- Decorative Botanical Leaf Curves Top-Left -->
+    <path
+        android:pathData="M-20,60 Q90,90 120,200 Q40,170 -20,60 Z"
+        android:fillColor="#4440916C" />
+    <path
+        android:pathData="M-10,140 Q75,165 95,250 Q25,225 -10,140 Z"
+        android:fillColor="#332D6A4F" />
+</vector>

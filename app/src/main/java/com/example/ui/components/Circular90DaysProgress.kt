@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -41,6 +42,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ui.theme.ForestGreen
@@ -63,9 +65,17 @@ fun Circular90DaysProgress(
     daysRemainingToFeb: Long,
     currentStreak: Int,
     dailyCompletionFraction: Float = 0f,
+    isChallengeCompleted: Boolean = dayNumber > totalDays,
+    isBeforeStart: Boolean = false,
+    startDateLabel: String = "07/11/2026",
     modifier: Modifier = Modifier
 ) {
-    val targetProgress = if (dayNumber <= 0) 0.02f else (dayNumber.toFloat() / totalDays.toFloat()).coerceIn(0.02f, 1f)
+    val targetProgress = when {
+        isChallengeCompleted -> 1f
+        isBeforeStart || dayNumber <= 0 -> 0.02f
+        else -> (dayNumber.toFloat() / totalDays.toFloat()).coerceIn(0.02f, 1f)
+    }
+
     val animatedProgress by animateFloatAsState(
         targetValue = targetProgress,
         animationSpec = spring(
@@ -105,6 +115,11 @@ fun Circular90DaysProgress(
         label = "pulse_alpha"
     )
 
+    val primaryColor = ForestGreen
+    val primaryDarkColor = ForestGreenDark
+    val accentColor = LeafGreen
+    val containerColor = MintLight
+
     Box(
         contentAlignment = Alignment.Center,
         modifier = modifier
@@ -116,11 +131,11 @@ fun Circular90DaysProgress(
             val outerStrokeWidth = 15.dp.toPx()
             val innerStrokeWidth = 7.dp.toPx()
 
-            // 1. Soft breathing botanical aura halo
+            // 1. Soft breathing aura halo
             drawCircle(
                 brush = Brush.radialGradient(
                     colors = listOf(
-                        LeafGreen.copy(alpha = pulseAlpha),
+                        if (isChallengeCompleted) GoldenStreak.copy(alpha = pulseAlpha) else accentColor.copy(alpha = pulseAlpha),
                         MarineAqua.copy(alpha = pulseAlpha * 0.45f),
                         Color.Transparent
                     ),
@@ -137,7 +152,7 @@ fun Circular90DaysProgress(
             val outerArcSize = Size(outerDiameter, outerDiameter)
 
             drawArc(
-                color = Color(0xFFDCEBE0).copy(alpha = 0.75f),
+                color = containerColor.copy(alpha = 0.85f),
                 startAngle = -90f,
                 sweepAngle = 360f,
                 useCenter = false,
@@ -148,7 +163,7 @@ fun Circular90DaysProgress(
 
             // Subtle tick marks along the outer ring
             drawArc(
-                color = ForestGreen.copy(alpha = 0.08f),
+                color = primaryColor.copy(alpha = 0.10f),
                 startAngle = -90f,
                 sweepAngle = 360f,
                 useCenter = false,
@@ -164,8 +179,8 @@ fun Circular90DaysProgress(
             val sweepAngle = 360f * animatedProgress
             drawArc(
                 brush = Brush.sweepGradient(
-                    0.0f to ForestGreen,
-                    0.45f to LeafGreen,
+                    0.0f to primaryColor,
+                    0.45f to accentColor,
                     0.8f to MarineAqua,
                     1.0f to GoldenStreak
                 ),
@@ -185,7 +200,7 @@ fun Circular90DaysProgress(
                 y = center.y + (outerRadius * sin(angleRad)).toFloat()
             )
             drawCircle(
-                color = LeafGreen.copy(alpha = 0.35f),
+                color = accentColor.copy(alpha = 0.35f),
                 radius = outerStrokeWidth * 0.85f,
                 center = orbCenter
             )
@@ -202,7 +217,7 @@ fun Circular90DaysProgress(
             val innerArcSize = Size(innerDiameter, innerDiameter)
 
             drawArc(
-                color = Color(0xFFE5F0E8).copy(alpha = 0.8f),
+                color = containerColor.copy(alpha = 0.7f),
                 startAngle = -90f,
                 sweepAngle = 360f,
                 useCenter = false,
@@ -230,13 +245,13 @@ fun Circular90DaysProgress(
         Box(
             contentAlignment = Alignment.Center,
             modifier = Modifier
-                .size(166.dp)
+                .size(168.dp)
                 .clip(CircleShape)
                 .background(
                     Brush.radialGradient(
                         colors = listOf(
-                            Color.White.copy(alpha = 0.92f),
-                            Color(0xFFF2FAF5).copy(alpha = 0.82f)
+                            Color.White.copy(alpha = 0.94f),
+                            containerColor.copy(alpha = 0.75f)
                         )
                     )
                 )
@@ -245,75 +260,97 @@ fun Circular90DaysProgress(
                     brush = Brush.linearGradient(
                         colors = listOf(
                             Color.White.copy(alpha = 0.95f),
-                            LeafGreen.copy(alpha = 0.28f),
+                            accentColor.copy(alpha = 0.30f),
                             MarineAqua.copy(alpha = 0.22f)
                         )
                     ),
                     shape = CircleShape
                 )
-                .padding(12.dp)
+                .padding(10.dp)
         ) {
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                // Streak badge (Warm amber glass pill)
+                // Streak / Trophy badge (Warm amber glass pill)
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
-                        .background(GoldenStreakLight.copy(alpha = 0.9f), RoundedCornerShape(12.dp))
+                        .background(GoldenStreakLight.copy(alpha = 0.92f), RoundedCornerShape(12.dp))
                         .border(0.8.dp, WarmAmber.copy(alpha = 0.3f), RoundedCornerShape(12.dp))
                         .padding(horizontal = 9.dp, vertical = 3.dp)
                 ) {
                     Icon(
-                        imageVector = Icons.Default.LocalFireDepartment,
+                        imageVector = if (isChallengeCompleted) Icons.Default.EmojiEvents else Icons.Default.LocalFireDepartment,
                         contentDescription = "Chuỗi ngày",
                         tint = WarmAmber,
                         modifier = Modifier.size(14.dp)
                     )
                     Text(
-                        text = "$currentStreak Ngày Chuỗi",
+                        text = if (isChallengeCompleted) "CHIẾN THẮNG 90N" else "$currentStreak Ngày Chuỗi",
                         color = WarmAmber,
                         fontWeight = FontWeight.ExtraBold,
-                        fontSize = 11.sp,
+                        fontSize = 10.5.sp,
                         modifier = Modifier.padding(start = 3.dp)
                     )
                 }
 
                 Spacer(modifier = Modifier.height(5.dp))
 
-                if (dayNumber == 0) {
-                    Text(
-                        text = "KHỞI ĐỘNG",
-                        style = MaterialTheme.typography.titleLarge.copy(
-                            fontWeight = FontWeight.Black,
-                            letterSpacing = 0.8.sp,
-                            fontSize = 20.sp
-                        ),
-                        color = ForestGreenDark
-                    )
-                    Text(
-                        text = "Bắt đầu 07/11",
-                        style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
-                        color = ForestGreen,
-                        fontSize = 11.sp
-                    )
-                } else {
-                    Text(
-                        text = "NGÀY $dayNumber",
-                        style = MaterialTheme.typography.headlineSmall.copy(
-                            fontWeight = FontWeight.Black,
-                            letterSpacing = 0.8.sp,
-                            fontSize = 24.sp
-                        ),
-                        color = ForestGreenDark
-                    )
-                    Text(
-                        text = "trên $totalDays ngày • Còn ${daysRemainingToFeb}N",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = TextSecondary,
-                        fontSize = 10.5.sp
-                    )
+                when {
+                    isChallengeCompleted -> {
+                        Text(
+                            text = "HOÀN THÀNH\nTHỬ THÁCH",
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                fontWeight = FontWeight.Black,
+                                letterSpacing = 0.4.sp,
+                                fontSize = 15.sp,
+                                lineHeight = 18.sp
+                            ),
+                            textAlign = TextAlign.Center,
+                            color = SuccessGreen
+                        )
+                        Text(
+                            text = "Đã đạt $dayNumber / $totalDays ngày",
+                            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
+                            color = primaryColor,
+                            fontSize = 10.5.sp
+                        )
+                    }
+                    isBeforeStart -> {
+                        Text(
+                            text = "KHỞI ĐỘNG",
+                            style = MaterialTheme.typography.titleLarge.copy(
+                                fontWeight = FontWeight.Black,
+                                letterSpacing = 0.8.sp,
+                                fontSize = 19.sp
+                            ),
+                            color = primaryDarkColor
+                        )
+                        Text(
+                            text = "Bắt đầu $startDateLabel",
+                            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
+                            color = primaryColor,
+                            fontSize = 10.5.sp
+                        )
+                    }
+                    else -> {
+                        Text(
+                            text = "NGÀY $dayNumber",
+                            style = MaterialTheme.typography.headlineSmall.copy(
+                                fontWeight = FontWeight.Black,
+                                letterSpacing = 0.8.sp,
+                                fontSize = 24.sp
+                            ),
+                            color = primaryDarkColor
+                        )
+                        Text(
+                            text = "trên $totalDays ngày • Còn ${daysRemainingToFeb}N",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = TextSecondary,
+                            fontSize = 10.5.sp
+                        )
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(6.dp))
@@ -322,15 +359,15 @@ fun Circular90DaysProgress(
                 val dailyPercentInt = (dailyCompletionFraction * 100).toInt().coerceIn(0, 100)
                 Box(
                     modifier = Modifier
-                        .background(MintLight.copy(alpha = 0.9f), RoundedCornerShape(10.dp))
-                        .border(0.8.dp, ForestGreen.copy(alpha = 0.22f), RoundedCornerShape(10.dp))
+                        .background(containerColor.copy(alpha = 0.9f), RoundedCornerShape(10.dp))
+                        .border(0.8.dp, primaryColor.copy(alpha = 0.22f), RoundedCornerShape(10.dp))
                         .padding(horizontal = 9.dp, vertical = 3.dp)
                 ) {
                     Text(
                         text = "Hôm nay: $dailyPercentInt% Hoàn thành",
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Bold,
-                        color = if (dailyPercentInt == 100) SuccessGreen else ForestGreen
+                        color = if (dailyPercentInt == 100) SuccessGreen else primaryColor
                     )
                 }
             }
