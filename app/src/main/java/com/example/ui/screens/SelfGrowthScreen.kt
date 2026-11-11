@@ -98,7 +98,7 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import kotlin.math.roundToInt
 
-private const val MAX_JOURNAL_LINE_CHARS = 120
+const val MAX_JOURNAL_LINE_CHARS = 180
 
 @Composable
 fun SelfGrowthScreen(
@@ -486,10 +486,8 @@ fun SelfGrowthScreen(
                         placeholder = "VD: Hoàn thành 10.000 bước, đọc trọn 20 phút sách và giữ vững cam kết No Sugar...",
                         value = line1,
                         onValueChange = {
-                            if (it.length <= MAX_JOURNAL_LINE_CHARS) {
-                                line1 = it
-                                savedSuccess = false
-                            }
+                            line1 = it.take(MAX_JOURNAL_LINE_CHARS)
+                            savedSuccess = false
                         },
                         accentColor = ForestGreen,
                         testTag = "journal_line_1_input"
@@ -504,10 +502,8 @@ fun SelfGrowthScreen(
                         placeholder = "VD: Khi mất tập trung lúc chiều, chỉ cần đứng dậy uống 250ml nước là tỉnh táo lại ngay...",
                         value = line2,
                         onValueChange = {
-                            if (it.length <= MAX_JOURNAL_LINE_CHARS) {
-                                line2 = it
-                                savedSuccess = false
-                            }
+                            line2 = it.take(MAX_JOURNAL_LINE_CHARS)
+                            savedSuccess = false
                         },
                         accentColor = WarmAmber,
                         testTag = "journal_line_2_input"
@@ -522,10 +518,8 @@ fun SelfGrowthScreen(
                         placeholder = "VD: Hoàn thành 2 phiên Pomodoro buổi sáng và trích 10% thu nhập vào quỹ mục tiêu...",
                         value = line3,
                         onValueChange = {
-                            if (it.length <= MAX_JOURNAL_LINE_CHARS) {
-                                line3 = it
-                                savedSuccess = false
-                            }
+                            line3 = it.take(MAX_JOURNAL_LINE_CHARS)
+                            savedSuccess = false
                         },
                         accentColor = MarineAqua,
                         testTag = "journal_line_3_input"
@@ -1004,13 +998,14 @@ private fun AutoExpandingJournalField(
                     else -> TextSecondary
                 },
                 maxLines = 1,
-                softWrap = false
+                softWrap = false,
+                modifier = Modifier.testTag("${testTag}_char_counter")
             )
         }
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        // Auto-expanding OutlinedTextField (minLines = 1, maxLines = 4)
+        // Auto-expanding OutlinedTextField (minLines = 2, maxLines = 5)
         OutlinedTextField(
             value = value,
             onValueChange = onValueChange,
@@ -1038,8 +1033,8 @@ private fun AutoExpandingJournalField(
                 }
             } else null,
             singleLine = false,
-            minLines = 1,
-            maxLines = 4,
+            minLines = 2,
+            maxLines = 5,
             textStyle = MaterialTheme.typography.bodyMedium.copy(
                 color = TextPrimary,
                 lineHeight = 20.sp

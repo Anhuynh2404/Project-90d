@@ -66,7 +66,10 @@ data class PersonalGrowthSummary(
     val last7DaysReading: List<Pair<String, Boolean>> = emptyList()
 )
 
-class Project90ViewModel(application: Application) : AndroidViewModel(application) {
+class Project90ViewModel @JvmOverloads constructor(
+    application: Application,
+    customRepository: com.example.data.repository.HabitRepository? = null
+) : AndroidViewModel(application) {
 
     companion object {
         const val PREFS_NAME = "project90_user_prefs"
@@ -77,7 +80,7 @@ class Project90ViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     private val prefs = application.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-    private val repository = (application as Project90Application).repository
+    private val repository = customRepository ?: (application as Project90Application).repository
     val stepCounterManager = StepCounterManager(application)
 
     val todayEpochDay = LocalDate.now().toEpochDay()
@@ -410,6 +413,7 @@ class Project90ViewModel(application: Application) : AndroidViewModel(applicatio
         description: String,
         isSalary: Boolean
     ) {
+        if (amount <= 0L) return
         viewModelScope.launch {
             repository.addFinancialTransaction(
                 amount = amount,
@@ -437,6 +441,7 @@ class Project90ViewModel(application: Application) : AndroidViewModel(applicatio
         dueDateEpochDay: Long,
         note: String
     ) {
+        if (amount <= 0L || personName.isBlank()) return
         viewModelScope.launch {
             repository.addDebt(type, personName, amount, dueDateEpochDay, note)
         }
@@ -461,12 +466,14 @@ class Project90ViewModel(application: Application) : AndroidViewModel(applicatio
         categoryIcon: String,
         note: String
     ) {
+        if (targetAmount <= 0L || title.isBlank()) return
         viewModelScope.launch {
             repository.addSavingsGoal(title, targetAmount, categoryIcon, note)
         }
     }
 
     fun allocateToSavingsGoal(goalId: Long, goalTitle: String, amount: Long) {
+        if (amount <= 0L) return
         viewModelScope.launch {
             repository.allocateToSavingsGoal(goalId, goalTitle, amount, recordTransaction = true)
             HabitNotificationHelper.postOrUpdateNotification(getApplication())
@@ -564,7 +571,12 @@ class Project90ViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     fun toggleFocusShield() {
-        _isFocusShieldActive.value = !_isFocusShieldActive.value
+        val nextState = !_isFocusShieldActive.value
+        _isFocusShieldActive.value = nextState
+        if (!nextState && _isPomodoroRunning.value) {
+            pomodoroJob?.cancel()
+            _isPomodoroRunning.value = false
+        }
     }
 
     fun saveJournal(l1: String, l2: String, l3: String) {

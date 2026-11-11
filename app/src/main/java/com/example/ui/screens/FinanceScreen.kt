@@ -9,6 +9,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -139,8 +140,9 @@ fun FinanceScreen(
     val formatter = remember { NumberFormat.getInstance(Locale("vi", "VN")) }
     val todayEpoch = remember { LocalDate.now().toEpochDay() }
 
+    Box(modifier = modifier.fillMaxSize()) {
     LazyColumn(
-        modifier = modifier
+        modifier = Modifier
             .fillMaxSize()
             .background(EcoBackground)
             .testTag("finance_screen"),
@@ -648,7 +650,7 @@ fun FinanceScreen(
         var bankSource by remember { mutableStateOf("TNEX") }
         var description by remember { mutableStateOf("") }
 
-        AlertDialog(
+        FinanceModalDialog(
             onDismissRequest = { showAddTxDialog = false },
             title = {
                 Text("Ghi Chép Thu / Chi Mới", fontWeight = FontWeight.Black, color = ForestGreen)
@@ -676,16 +678,27 @@ fun FinanceScreen(
 
                     OutlinedTextField(
                         value = amountText,
-                        onValueChange = { amountText = it.filter { ch -> ch.isDigit() } },
+                        onValueChange = { raw ->
+                            amountText = if (raw.trimStart().startsWith("-")) {
+                                ""
+                            } else {
+                                raw.filter { ch -> ch.isDigit() }.take(15)
+                            }
+                        },
                         label = { Text("Số tiền (VND)") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("tx_amount_input")
                     )
 
                     Text("Chọn danh mục:", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        items(categories) { cat ->
+                    Row(
+                        modifier = Modifier.horizontalScroll(androidx.compose.foundation.rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        categories.forEach { cat ->
                             FilterChip(
                                 selected = selectedCategory == cat,
                                 onClick = { selectedCategory = cat },
@@ -752,7 +765,8 @@ fun FinanceScreen(
                             showAddTxDialog = false
                         }
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = ForestGreen)
+                    colors = ButtonDefaults.buttonColors(containerColor = ForestGreen),
+                    modifier = Modifier.testTag("tx_save_button")
                 ) {
                     Text("Lưu Giao Dịch", color = Color.White, fontWeight = FontWeight.Bold)
                 }
@@ -774,7 +788,7 @@ fun FinanceScreen(
         var dueDays by remember { mutableIntStateOf(14) }
         var note by remember { mutableStateOf("") }
 
-        AlertDialog(
+        FinanceModalDialog(
             onDismissRequest = { showAddDebtDialog = false },
             title = {
                 Text("Ghi Chép Khoản Nợ Mới", fontWeight = FontWeight.Black, color = ForestGreen)
@@ -805,16 +819,26 @@ fun FinanceScreen(
                         onValueChange = { personName = it },
                         label = { Text("Người liên quan (Họ tên)") },
                         singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("debt_person_input")
                     )
 
                     OutlinedTextField(
                         value = amountText,
-                        onValueChange = { amountText = it.filter { ch -> ch.isDigit() } },
+                        onValueChange = { raw ->
+                            amountText = if (raw.trimStart().startsWith("-")) {
+                                ""
+                            } else {
+                                raw.filter { ch -> ch.isDigit() }.take(15)
+                            }
+                        },
                         label = { Text("Số tiền (VND)") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("debt_amount_input")
                     )
 
                     Text("Hạn thanh toán:", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
@@ -856,7 +880,8 @@ fun FinanceScreen(
                             showAddDebtDialog = false
                         }
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = ForestGreen)
+                    colors = ButtonDefaults.buttonColors(containerColor = ForestGreen),
+                    modifier = Modifier.testTag("debt_save_button")
                 ) {
                     Text("Lưu Khoản Nợ", color = Color.White, fontWeight = FontWeight.Bold)
                 }
@@ -877,7 +902,7 @@ fun FinanceScreen(
         var selectedIcon by remember { mutableStateOf("CAR") }
         var note by remember { mutableStateOf("") }
 
-        AlertDialog(
+        FinanceModalDialog(
             onDismissRequest = { showAddGoalDialog = false },
             title = {
                 Text("Tạo Quỹ Tiết Kiệm Mục Tiêu", fontWeight = FontWeight.Black, color = ForestGreen)
@@ -960,7 +985,7 @@ fun FinanceScreen(
     // ==================== DIALOG 4: TRÍCH TIỀN TỪ THU NHẬP VÀO QUỸ ====================
     selectedGoalForDeposit?.let { goal ->
         var depositText by remember { mutableStateOf("500000") }
-        AlertDialog(
+        FinanceModalDialog(
             onDismissRequest = { selectedGoalForDeposit = null },
             title = {
                 Text("Trích Tiền Vào ${goal.title}", fontWeight = FontWeight.Black, color = ForestGreen)
@@ -1018,6 +1043,7 @@ fun FinanceScreen(
             },
             containerColor = CardWhite
         )
+    }
     }
 }
 
@@ -1663,3 +1689,52 @@ private fun EmptyFinanceStateCard(
         }
     }
 }
+
+@Composable
+private fun FinanceModalDialog(
+    onDismissRequest: () -> Unit,
+    title: @Composable () -> Unit,
+    text: @Composable () -> Unit,
+    confirmButton: @Composable () -> Unit,
+    dismissButton: @Composable () -> Unit,
+    containerColor: Color = CardWhite
+) {
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black.copy(alpha = 0.45f))
+            .clickable(onClick = onDismissRequest)
+            .padding(20.dp)
+    ) {
+        Card(
+            colors = CardDefaults.cardColors(containerColor = containerColor),
+            shape = RoundedCornerShape(24.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .border(1.dp, CardBorder, RoundedCornerShape(24.dp))
+                .clickable(enabled = false) {}
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                title()
+                text()
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    dismissButton()
+                    Spacer(modifier = Modifier.width(8.dp))
+                    confirmButton()
+                }
+            }
+        }
+    }
+}
+
+
