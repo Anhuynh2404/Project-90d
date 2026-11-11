@@ -43,13 +43,19 @@ android {
   buildTypes {
     release {
       isCrunchPngs = false
-      isMinifyEnabled = false
+      // PHẦN 1: Kích hoạt R8 Code Shrinking, Obfuscation & Optimization cho bản Release
+      isMinifyEnabled = true
+      // Tự động loại bỏ tài nguyên (drawable, xml, raw) dư thừa để tối ưu dung lượng APK/AAB
+      isShrinkResources = true
+      isDebuggable = false
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
       // Do not remove or modify this signingConfig assignment. It is necessary for Android apps in
       // AI Studio.
       signingConfig = signingConfigs.getByName("release")
     }
     debug {
+      isMinifyEnabled = false
+      isShrinkResources = false
       // Do not remove or modify this signingConfig assignment. It is necessary for Android apps in
       // AI Studio.
       signingConfig = signingConfigs.getByName("debugConfig")
