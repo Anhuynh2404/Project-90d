@@ -18,6 +18,9 @@ interface DailyLogDao {
     @Query("SELECT * FROM daily_logs WHERE habitId = :habitId ORDER BY dateEpochDay DESC LIMIT :limit")
     fun getRecentLogsForHabit(habitId: String, limit: Int = 7): Flow<List<DailyLogEntity>>
 
+    @Query("SELECT * FROM daily_logs WHERE habitId = :habitId AND isCompleted = 1 ORDER BY dateEpochDay DESC")
+    fun getCompletedLogsForHabit(habitId: String): Flow<List<DailyLogEntity>>
+
     @Query("SELECT * FROM daily_logs ORDER BY dateEpochDay DESC")
     fun getAllLogs(): Flow<List<DailyLogEntity>>
 

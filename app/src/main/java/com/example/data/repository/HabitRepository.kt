@@ -39,6 +39,11 @@ class HabitRepository(
     val allSavingsGoalsFlow: Flow<List<SavingsGoalEntity>> = financeDao.getAllSavingsGoals()
     val totalGoalsSavedFlow: Flow<Long?> = financeDao.getTotalGoalsSavedAmount()
 
+    val allJournalsFlow: Flow<List<DailyJournalEntity>> = journalDao.getAllJournals()
+    val completedJournalCountFlow: Flow<Int> = journalDao.getCompletedJournalCount()
+    val completedReadingLogsFlow: Flow<List<DailyLogEntity>> =
+        dailyLogDao.getCompletedLogsForHabit("reading_20min")
+
     fun getLogsForDate(dateEpochDay: Long): Flow<List<DailyLogEntity>> =
         dailyLogDao.getLogsForDate(dateEpochDay)
 

@@ -12,6 +12,12 @@ interface JournalDao {
     @Query("SELECT * FROM daily_journals WHERE dateEpochDay = :dateEpochDay LIMIT 1")
     fun getJournalForDate(dateEpochDay: Long): Flow<DailyJournalEntity?>
 
+    @Query("SELECT * FROM daily_journals ORDER BY dateEpochDay DESC")
+    fun getAllJournals(): Flow<List<DailyJournalEntity>>
+
+    @Query("SELECT COUNT(*) FROM daily_journals WHERE TRIM(line1GoodThings) != '' AND TRIM(line2LessonLearned) != '' AND TRIM(line3TomorrowGoal) != ''")
+    fun getCompletedJournalCount(): Flow<Int>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertJournal(journal: DailyJournalEntity)
 

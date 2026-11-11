@@ -47,6 +47,16 @@ data class DashboardSummary(
     val currentStreak: Int = 0
 )
 
+data class PersonalGrowthSummary(
+    val readingStreakDays: Int = 0,
+    val readingStreakTarget: Int = 7,
+    val totalReadingDaysCompleted: Int = 0,
+    val totalJournalsWritten: Int = 0,
+    val journalStreakDays: Int = 0,
+    val journalGoalDays: Int = 90,
+    val last7DaysReading: List<Pair<String, Boolean>> = emptyList()
+)
+
 class Project90ViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository = (application as Project90Application).repository
@@ -73,6 +83,15 @@ class Project90ViewModel(application: Application) : AndroidViewModel(applicatio
 
     val todayJournal: StateFlow<DailyJournalEntity?> = repository.getJournalForDate(todayEpochDay)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    val allJournals: StateFlow<List<DailyJournalEntity>> = repository.allJournalsFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val completedJournalCount: StateFlow<Int> = repository.completedJournalCountFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
+
+    val completedReadingLogs: StateFlow<List<DailyLogEntity>> = repository.completedReadingLogsFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val transactions: StateFlow<List<FinanceTransactionEntity>> = repository.allFinanceFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -125,6 +144,62 @@ class Project90ViewModel(application: Application) : AndroidViewModel(applicatio
     val isFocusShieldActive: StateFlow<Boolean> = _isFocusShieldActive.asStateFlow()
 
     private var pomodoroJob: Job? = null
+
+    // Personal Growth Summary combining reading logs & journals
+    val personalGrowthSummary: StateFlow<PersonalGrowthSummary> = combine(
+        completedReadingLogs,
+        allJournals,
+        completedJournalCount
+    ) { readLogs, journals, journalCount ->
+        val readEpochSet = readLogs.filter { it.isCompleted }.map { it.dateEpochDay }.toSet()
+
+        // Calculate consecutive reading streak ending today or yesterday
+        var readingStreak = 0
+        var checkDay = if (todayEpochDay in readEpochSet) todayEpochDay else todayEpochDay - 1
+        while (checkDay in readEpochSet) {
+            readingStreak++
+            checkDay--
+        }
+
+        val nextTarget = when {
+            readingStreak < 7 -> 7
+            readingStreak < 14 -> 14
+            readingStreak < 30 -> 30
+            readingStreak < 60 -> 60
+            else -> 90
+        }
+
+        // Calculate consecutive journal streak
+        val validJournalSet = journals.filter {
+            it.line1GoodThings.isNotBlank() &&
+                it.line2LessonLearned.isNotBlank() &&
+                it.line3TomorrowGoal.isNotBlank()
+        }.map { it.dateEpochDay }.toSet()
+
+        var jStreak = 0
+        var jCheckDay = if (todayEpochDay in validJournalSet) todayEpochDay else todayEpochDay - 1
+        while (jCheckDay in validJournalSet) {
+            jStreak++
+            jCheckDay--
+        }
+
+        val last7Days = (6 downTo 0).map { offset ->
+            val day = todayEpochDay - offset
+            val date = LocalDate.ofEpochDay(day)
+            val label = if (offset == 0) "H.Nay" else "${date.dayOfMonth}/${date.monthValue}"
+            label to (day in readEpochSet)
+        }
+
+        PersonalGrowthSummary(
+            readingStreakDays = readingStreak,
+            readingStreakTarget = nextTarget,
+            totalReadingDaysCompleted = readEpochSet.size,
+            totalJournalsWritten = journalCount,
+            journalStreakDays = jStreak,
+            journalGoalDays = 90,
+            last7DaysReading = last7Days
+        )
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), PersonalGrowthSummary())
 
     val dashboardSummary: StateFlow<DashboardSummary> = combine(user, habits, todayLogs) { u, hList, logs ->
         val dailyHabits = hList.filter { !it.isWeekly }
@@ -328,7 +403,18 @@ class Project90ViewModel(application: Application) : AndroidViewModel(applicatio
                     repository.saveReadingSeconds(todayEpochDay, elapsedSeconds)
                 }
                 _isReadingRunning.value = false
+                HabitNotificationHelper.postOrUpdateNotification(getApplication())
             }
+        }
+    }
+
+    fun addReadingMinutesQuick(minutesToAdd: Int) {
+        val deductSec = minutesToAdd * 60
+        _readingTimerSeconds.value = (_readingTimerSeconds.value - deductSec).coerceAtLeast(0)
+        val elapsedSeconds = (20 * 60) - _readingTimerSeconds.value
+        viewModelScope.launch {
+            repository.saveReadingSeconds(todayEpochDay, elapsedSeconds)
+            HabitNotificationHelper.postOrUpdateNotification(getApplication())
         }
     }
 
