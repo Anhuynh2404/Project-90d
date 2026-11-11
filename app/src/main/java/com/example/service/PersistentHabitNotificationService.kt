@@ -9,6 +9,7 @@ import android.os.Build
 import android.os.IBinder
 import androidx.core.app.ServiceCompat
 import com.example.Project90Application
+import com.example.sensor.StepCounterManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -20,6 +21,7 @@ import java.time.LocalDate
 class PersistentHabitNotificationService : Service() {
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private var stepCounterManager: StepCounterManager? = null
 
     companion object {
         @Volatile
@@ -39,7 +41,6 @@ class PersistentHabitNotificationService : Service() {
                 }
             } catch (_: Exception) {}
 
-            // Post notification immediately to guarantee instantaneous appearance
             HabitNotificationHelper.postOrUpdateNotification(context)
         }
 
@@ -57,27 +58,41 @@ class PersistentHabitNotificationService : Service() {
         activeServiceInstance = this
         HabitNotificationHelper.createNotificationChannel(this)
 
-        // Lock notification via startForeground immediately upon creation
+        // Start Hardware Pedometer Sensor (Sensor.TYPE_STEP_COUNTER) inside Foreground Service
+        val pedometer = StepCounterManager(this)
+        stepCounterManager = pedometer
+        pedometer.startListening()
+
         val initialNotif = HabitNotificationHelper.buildDashboardNotification(
             context = this,
             dayNumber = 1,
             totalDays = 90,
             daysRemainingToFeb = 80,
-            currentStreak = 7,
+            currentStreak = 0,
             completedCount = 0,
-            totalCount = 13,
+            totalCount = 12,
             stepCount = 0,
             waterMl = 0,
             pushupDone = false,
             squatDone = false,
             noSugarDone = false,
-            pendingHabitsText = "Đang đồng bộ bảng theo dõi thói quen 24/7...",
+            pendingHabitsText = "Đang đồng bộ cảm biến bước chân & bảng kỷ luật 24/7...",
             isCompletedAll = false
         )
         applyForegroundNotification(initialNotif)
-
-        // Post fresh content right away
         HabitNotificationHelper.postOrUpdateNotification(this)
+
+        // Observe hardware step sensor in background and persist to Room Database
+        serviceScope.launch {
+            val app = applicationContext as? Project90Application ?: return@launch
+            val repo = app.repository
+            pedometer.stepCount.collect { steps ->
+                if (steps > 0) {
+                    val todayEpochDay = LocalDate.now().toEpochDay()
+                    repo.updateSteps(todayEpochDay, steps)
+                }
+            }
+        }
 
         // Real-time observer on repository: whenever data changes, update pinned notification
         serviceScope.launch {
@@ -98,6 +113,7 @@ class PersistentHabitNotificationService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         isServiceRunning = true
         activeServiceInstance = this
+        stepCounterManager?.startListening()
         HabitNotificationHelper.postOrUpdateNotification(this)
         return START_STICKY
     }
@@ -119,11 +135,11 @@ class PersistentHabitNotificationService : Service() {
 
     override fun onDestroy() {
         super.onDestroy()
+        stepCounterManager?.stopListening()
         isServiceRunning = false
         activeServiceInstance = null
         serviceScope.cancel()
 
-        // Restart service immediately to ensure 24/7 unkillable persistence
         val restartIntent = Intent(applicationContext, PersistentHabitNotificationService::class.java)
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -137,7 +153,6 @@ class PersistentHabitNotificationService : Service() {
 
     override fun onTaskRemoved(rootIntent: Intent?) {
         super.onTaskRemoved(rootIntent)
-        // User swiped app away from recents: ensure notification stays permanently pinned in status bar!
         val restartIntent = Intent(applicationContext, PersistentHabitNotificationService::class.java)
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {

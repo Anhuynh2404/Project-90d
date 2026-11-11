@@ -8,11 +8,15 @@ import com.example.data.local.dao.DailyLogDao
 import com.example.data.local.dao.FinanceDao
 import com.example.data.local.dao.HabitDao
 import com.example.data.local.dao.JournalDao
+import com.example.data.local.dao.TimeAllocationDao
 import com.example.data.local.dao.UserDao
 import com.example.data.local.entity.DailyJournalEntity
 import com.example.data.local.entity.DailyLogEntity
+import com.example.data.local.entity.DebtEntity
 import com.example.data.local.entity.FinanceTransactionEntity
 import com.example.data.local.entity.HabitEntity
+import com.example.data.local.entity.SavingsGoalEntity
+import com.example.data.local.entity.TimeAllocationEntity
 import com.example.data.local.entity.UserEntity
 
 @Database(
@@ -21,9 +25,12 @@ import com.example.data.local.entity.UserEntity
         HabitEntity::class,
         DailyLogEntity::class,
         FinanceTransactionEntity::class,
+        DebtEntity::class,
+        SavingsGoalEntity::class,
+        TimeAllocationEntity::class,
         DailyJournalEntity::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -32,6 +39,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun dailyLogDao(): DailyLogDao
     abstract fun financeDao(): FinanceDao
     abstract fun journalDao(): JournalDao
+    abstract fun timeAllocationDao(): TimeAllocationDao
 
     companion object {
         @Volatile
@@ -44,7 +52,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "project90_database.db"
                 ).fallbackToDestructiveMigration()
-                 .build()
+                    .build()
                 INSTANCE = instance
                 instance
             }

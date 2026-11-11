@@ -1,20 +1,16 @@
 package com.example.ui.screens
 
 import android.Manifest
-import android.app.AlarmManager
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.PowerManager
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -28,36 +24,21 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Alarm
-import androidx.compose.material.icons.filled.AlarmOff
-import androidx.compose.material.icons.filled.BatteryAlert
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.GraphicEq
-import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Shield
-import androidx.compose.material.icons.filled.Vibration
-import androidx.compose.material.icons.filled.VolumeUp
-import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Slider
-import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -73,17 +54,12 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.app.NotificationManagerCompat
-import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.example.service.AlarmToneType
-import com.example.service.AlarmVibrationType
 import com.example.ui.theme.CardBorder
 import com.example.ui.theme.CardWhite
 import com.example.ui.theme.DangerCrimson
 import com.example.ui.theme.EcoBackground
 import com.example.ui.theme.ForestGreen
-import com.example.ui.theme.GoldenStreak
-import com.example.ui.theme.LeafGreen
 import com.example.ui.theme.MarineAqua
 import com.example.ui.theme.MintBorder
 import com.example.ui.theme.MintLight
@@ -101,11 +77,7 @@ fun AlarmSettingsScreen(
 ) {
     val context = LocalContext.current
 
-    val isRinging by viewModel.isAlarmRinging.collectAsStateWithLifecycle()
-    val selectedTone by viewModel.selectedTone.collectAsStateWithLifecycle()
-    val selectedVib by viewModel.selectedVibration.collectAsStateWithLifecycle()
-    val volume by viewModel.alarmVolume.collectAsStateWithLifecycle()
-
+    val summary by viewModel.dashboardSummary.collectAsStateWithLifecycle()
     val habits by viewModel.habits.collectAsStateWithLifecycle()
     val todayLogs by viewModel.todayLogs.collectAsStateWithLifecycle()
 
@@ -124,15 +96,6 @@ fun AlarmSettingsScreen(
         mutableStateOf(
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                 powerManager?.isIgnoringBatteryOptimizations(context.packageName) ?: false
-            } else true
-        )
-    }
-
-    var canExactAlarm by remember {
-        val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager
-        mutableStateOf(
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                alarmManager?.canScheduleExactAlarms() ?: false
             } else true
         )
     }
@@ -158,7 +121,7 @@ fun AlarmSettingsScreen(
         item {
             Column {
                 Text(
-                    text = "CÀI ĐẶT CHUÔNG & QUYỀN HỆ THỐNG",
+                    text = "CÀI ĐẶT HỆ THỐNG & GIÁM SÁT 24/7",
                     style = MaterialTheme.typography.titleLarge.copy(
                         fontWeight = FontWeight.Black,
                         letterSpacing = 1.sp
@@ -166,7 +129,7 @@ fun AlarmSettingsScreen(
                     color = ForestGreen
                 )
                 Text(
-                    text = "Bảo đảm thông báo ghim 24/7 và chuông cảnh báo không bị ngăn chặn",
+                    text = "Quản lý bảng thông báo đẩy ghim 24/7 và các quyền hoạt động nền",
                     style = MaterialTheme.typography.bodyMedium,
                     color = TextSecondary
                 )
@@ -284,7 +247,7 @@ fun AlarmSettingsScreen(
                                 }
 
                                 Text(
-                                    text = "🔥 7N Chuỗi",
+                                    text = "🔥 ${summary.currentStreak}N Chuỗi",
                                     fontSize = 10.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = WarmAmber,
@@ -457,7 +420,7 @@ fun AlarmSettingsScreen(
         item {
             PermissionCard(
                 title = "1. Quyền Thông Báo Đẩy (Post Notifications)",
-                description = "Bắt buộc trên Android 13+ để ứng dụng hiển thị thông báo ghim và chuông khẩn cấp.",
+                description = "Bắt buộc trên Android 13+ để ứng dụng hiển thị bảng thông báo ghim 24/7.",
                 isGranted = hasNotifPermission,
                 actionLabel = "Cấp Quyền",
                 onAction = {
@@ -477,7 +440,7 @@ fun AlarmSettingsScreen(
         item {
             PermissionCard(
                 title = "2. Chạy Nền Không Giới Hạn (Tắt Tối Ưu Hóa Pin)",
-                description = "Ngăn chặn hệ điều hành Android tự ý dừng dịch vụ báo thức và đếm bước chân khi tắt màn hình.",
+                description = "Ngăn chặn hệ điều hành Android tự ý dừng dịch vụ thông báo 24/7 và đếm bước chân khi tắt màn hình.",
                 isGranted = isIgnoringBattery,
                 actionLabel = "Bỏ Giới Hạn Pin",
                 onAction = {
@@ -494,281 +457,6 @@ fun AlarmSettingsScreen(
                     }
                 }
             )
-        }
-
-        // Permission 3: Exact Alarms
-        item {
-            PermissionCard(
-                title = "3. Báo Thức Đúng Giờ Tuyệt Đối (Exact Alarms)",
-                description = "Đảm bảo chuông 5:00 AM và các lệnh giới nghiêm 14:00, 22:00 reo chính xác từng giây.",
-                isGranted = canExactAlarm,
-                actionLabel = "Cho Phép Báo Thức",
-                onAction = {
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                        val intent = Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply {
-                            data = Uri.parse("package:${context.packageName}")
-                        }
-                        context.startActivity(intent)
-                    }
-                }
-            )
-        }
-
-        // Section 3: Alarm Tone & Vibration Customization
-        item {
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = "CÀI ĐẶT CHUÔNG CẢNH BÁO & ĐỘ RUNG",
-                style = MaterialTheme.typography.titleSmall.copy(
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 0.5.sp
-                ),
-                color = ForestGreen
-            )
-        }
-
-        // Alarm Test Hero Button
-        item {
-            Card(
-                colors = CardDefaults.cardColors(
-                    containerColor = if (isRinging) DangerCrimson.copy(alpha = 0.15f) else CardWhite
-                ),
-                shape = RoundedCornerShape(20.dp),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .border(
-                        1.5.dp,
-                        if (isRinging) DangerCrimson else CardBorder,
-                        RoundedCornerShape(20.dp)
-                    )
-            ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.padding(18.dp)
-                ) {
-                    Icon(
-                        imageVector = if (isRinging) Icons.Default.VolumeUp else Icons.Default.GraphicEq,
-                        contentDescription = "Sound Test",
-                        tint = if (isRinging) DangerCrimson else ForestGreen,
-                        modifier = Modifier.size(36.dp)
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = if (isRinging) "CHUÔNG ĐANG PHÁT ÂM LƯỢNG LỚN & RUNG LIÊN TỤC!" else "KIỂM TRA CHUÔNG CẢNH BÁO & ĐỘ RUNG",
-                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Black),
-                        color = if (isRinging) DangerCrimson else TextPrimary
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "Đang chọn: ${selectedTone.title}",
-                        fontSize = 12.sp,
-                        color = ForestGreen,
-                        fontWeight = FontWeight.Bold
-                    )
-
-                    Spacer(modifier = Modifier.height(14.dp))
-
-                    Button(
-                        onClick = {
-                            if (isRinging) {
-                                viewModel.dismissAlarmManually()
-                            } else {
-                                viewModel.playTonePreview(selectedTone)
-                            }
-                        },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = if (isRinging) DangerCrimson else ForestGreen
-                        ),
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Icon(
-                            imageVector = if (isRinging) Icons.Default.AlarmOff else Icons.Default.Alarm,
-                            contentDescription = "Test Sound",
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = if (isRinging) "Dừng Chuông Ngay" else "Phát Thử Chuông Cảnh Báo",
-                            fontWeight = FontWeight.Black,
-                            fontSize = 13.sp,
-                            color = Color.White
-                        )
-                    }
-                }
-            }
-        }
-
-        // Tone Selector
-        item {
-            Card(
-                colors = CardDefaults.cardColors(containerColor = CardWhite),
-                shape = RoundedCornerShape(18.dp),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .border(1.dp, CardBorder, RoundedCornerShape(18.dp))
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text(
-                        text = "CHỌN GIAI ĐIỆU CẢNH BÁO",
-                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                        color = TextPrimary
-                    )
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    AlarmToneType.values().forEach { tone ->
-                        val isSelected = tone == selectedTone
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(10.dp))
-                                .background(if (isSelected) MintLight else Color.Transparent)
-                                .border(
-                                    1.dp,
-                                    if (isSelected) ForestGreen else Color.Transparent,
-                                    RoundedCornerShape(10.dp)
-                                )
-                                .clickable { viewModel.setAlarmTone(tone) }
-                                .padding(12.dp)
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = tone.title,
-                                    fontSize = 13.sp,
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                    color = if (isSelected) ForestGreen else TextPrimary
-                                )
-                                Text(
-                                    text = tone.description,
-                                    fontSize = 11.sp,
-                                    color = TextSecondary
-                                )
-                            }
-
-                            if (isSelected) {
-                                Icon(
-                                    imageVector = Icons.Default.CheckCircle,
-                                    contentDescription = "Selected",
-                                    tint = ForestGreen,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                            }
-                        }
-                        Spacer(modifier = Modifier.height(6.dp))
-                    }
-                }
-            }
-        }
-
-        // Vibration Pattern Selector
-        item {
-            Card(
-                colors = CardDefaults.cardColors(containerColor = CardWhite),
-                shape = RoundedCornerShape(18.dp),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .border(1.dp, CardBorder, RoundedCornerShape(18.dp))
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Vibration, contentDescription = "Vibration", tint = ForestGreen, modifier = Modifier.size(20.dp))
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = "KIỂU RUNG CẢNH BÁO",
-                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                            color = TextPrimary
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    AlarmVibrationType.values().forEach { vib ->
-                        val isSelected = vib == selectedVib
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(10.dp))
-                                .background(if (isSelected) MintLight else Color.Transparent)
-                                .border(
-                                    1.dp,
-                                    if (isSelected) ForestGreen else Color.Transparent,
-                                    RoundedCornerShape(10.dp)
-                                )
-                                .clickable { viewModel.setAlarmVibration(vib) }
-                                .padding(12.dp)
-                        ) {
-                            Text(
-                                text = vib.title,
-                                fontSize = 13.sp,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                color = if (isSelected) ForestGreen else TextPrimary
-                            )
-
-                            if (isSelected) {
-                                Icon(Icons.Default.Check, contentDescription = "Selected", tint = ForestGreen, modifier = Modifier.size(18.dp))
-                            }
-                        }
-                        Spacer(modifier = Modifier.height(6.dp))
-                    }
-                }
-            }
-        }
-
-        // Volume Slider
-        item {
-            Card(
-                colors = CardDefaults.cardColors(containerColor = CardWhite),
-                shape = RoundedCornerShape(18.dp),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .border(1.dp, CardBorder, RoundedCornerShape(18.dp))
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.VolumeUp, contentDescription = "Volume", tint = ForestGreen, modifier = Modifier.size(20.dp))
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = "ÂM LƯỢNG CHUÔNG",
-                                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                                color = TextPrimary
-                            )
-                        }
-
-                        Text(
-                            text = "$volume%",
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Black,
-                            color = ForestGreen
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    Slider(
-                        value = volume.toFloat(),
-                        onValueChange = { viewModel.setAlarmVolume(it.toInt()) },
-                        valueRange = 10f..100f,
-                        colors = SliderDefaults.colors(
-                            thumbColor = ForestGreen,
-                            activeTrackColor = ForestGreen,
-                            inactiveTrackColor = Color(0xFFE2EBE4)
-                        )
-                    )
-                }
-            }
         }
 
         item {

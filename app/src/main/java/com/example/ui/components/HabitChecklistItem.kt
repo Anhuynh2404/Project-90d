@@ -75,7 +75,6 @@ fun HabitChecklistItem(
         HabitCategory.MOVEMENT.name -> if (habit.id.contains("water") || habit.id.contains("cold")) Icons.Default.LocalDrink else Icons.Default.FitnessCenter
         HabitCategory.NUTRITION.name -> if (habit.id.contains("sugar")) Icons.Default.NoDrinks else Icons.Default.LocalDrink
         HabitCategory.DIGITAL_WELLBEING.name -> Icons.Default.Nightlight
-        HabitCategory.WAKE_UP_5AM.name -> Icons.Default.Alarm
         HabitCategory.FINANCE.name -> Icons.Default.Savings
         HabitCategory.SELF_GROWTH.name -> Icons.Default.Book
         else -> Icons.Default.DirectionsRun
@@ -85,9 +84,9 @@ fun HabitChecklistItem(
         modifier = modifier
             .fillMaxWidth()
             .testTag("habit_item_${habit.id}")
-            .clip(RoundedCornerShape(16.dp))
-            .background(CardWhite)
-            .border(1.dp, borderColor, RoundedCornerShape(16.dp))
+            .clip(RoundedCornerShape(18.dp))
+            .background(CardWhite.copy(alpha = 0.94f))
+            .border(1.dp, borderColor, RoundedCornerShape(18.dp))
             .clickable { onToggle() }
             .padding(14.dp)
     ) {

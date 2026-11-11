@@ -7,7 +7,6 @@ enum class HabitCategory(val displayName: String, val iconKey: String) {
     MOVEMENT("Vận Động", "fitness"),
     NUTRITION("Dinh Dưỡng", "nutrition"),
     DIGITAL_WELLBEING("Detox & Giấc Ngủ", "bedtime"),
-    WAKE_UP_5AM("Báo Thức 5:00 AM", "alarm"),
     FINANCE("Quản Lý Tài Chính", "wallet"),
     SELF_GROWTH("Phát Triển Bản Thân", "book")
 }

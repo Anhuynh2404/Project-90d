@@ -77,7 +77,6 @@ import com.example.ui.screens.FinanceScreen
 import com.example.ui.screens.MovementScreen
 import com.example.ui.screens.NutritionScreen
 import com.example.ui.screens.SelfGrowthScreen
-import com.example.ui.screens.WakeUpAlarmScreen
 import com.example.ui.theme.CardBorder
 import com.example.ui.theme.CardWhite
 import com.example.ui.theme.CharcoalCard
@@ -241,7 +240,6 @@ fun Project90App(
                         AppTab.MOVEMENT -> MovementScreen(viewModel = viewModel)
                         AppTab.NUTRITION -> NutritionScreen(viewModel = viewModel)
                         AppTab.DIGITAL -> DigitalWellbeingScreen(viewModel = viewModel)
-                        AppTab.ALARM_5AM -> WakeUpAlarmScreen(viewModel = viewModel)
                         AppTab.FINANCE -> FinanceScreen(viewModel = viewModel)
                         AppTab.GROWTH -> SelfGrowthScreen(viewModel = viewModel)
                         AppTab.SETTINGS -> AlarmSettingsScreen(viewModel = viewModel)
@@ -282,10 +280,9 @@ fun Project90BottomBar(
                 AppTab.MOVEMENT to ("Vận Động" to Icons.Default.DirectionsRun),
                 AppTab.NUTRITION to ("Dinh Dưỡng" to Icons.Default.LocalDrink),
                 AppTab.DIGITAL to ("Detox" to Icons.Default.Nightlight),
-                AppTab.ALARM_5AM to ("Báo Thức 5AM" to Icons.Default.Alarm),
                 AppTab.FINANCE to ("Tài Chính" to Icons.Default.Savings),
                 AppTab.GROWTH to ("Phát Triển" to Icons.Default.Book),
-                AppTab.SETTINGS to ("Cài Đặt Chuông" to Icons.Default.Settings)
+                AppTab.SETTINGS to ("Cài Đặt" to Icons.Default.Settings)
             )
 
             tabs.forEach { (tab, meta) ->

@@ -1,6 +1,6 @@
 {
   "name": "Project 90",
-  "description": "Project 90 (v1.0.0) - Ứng dụng theo dõi thói quen cực đoan & kỷ luật thép 90 ngày bứt phá trước tháng Hai. Tích hợp đếm bước chân, dinh dưỡng No Sugar, cai nghiện điện thoại, chuông báo thức 5AM AI CameraX, tự động trích 10% tiết kiệm và bảng thông báo Dashboard 24/7.",
+  "description": "Project 90 (v2.0.0) - Bảng điều khiển trung tâm kỷ luật 90 ngày phong cách Eco-Botanical & Glassmorphism. Tích hợp vòng tròn đếm ngược 90 ngày chuyển động mượt mà, hệ thống Widget tóm tắt % hoàn thành trong ngày cho Nước & Dinh dưỡng, Bước chân & Vận động, Thời gian & Detox, Tài chính tự động trích 10% tiết kiệm và thanh thông báo bám sát 24/7.",
   "requestFramePermissions": [],
   "majorCapabilities": [
     "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
