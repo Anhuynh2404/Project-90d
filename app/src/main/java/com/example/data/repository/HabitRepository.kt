@@ -528,6 +528,44 @@ class HabitRepository(
         userDao.insertOrUpdate(updatedUser)
     }
 
+    suspend fun getEffectiveStartDateEpochDay(
+        prefs: android.content.SharedPreferences? = null,
+        prefsKey: String = "start_date_epoch_day",
+        fallbackEpochDay: Long = LocalDate.of(2026, 11, 7).toEpochDay()
+    ): Long {
+        if (prefs != null && prefs.contains(prefsKey)) {
+            return prefs.getLong(prefsKey, fallbackEpochDay)
+        }
+        return userDao.getUser().firstOrNull()?.startDateEpochDay ?: fallbackEpochDay
+    }
+
+    fun calculateCurrentDayNumber(todayEpochDay: Long, startDateEpochDay: Long): Int {
+        val diff = (todayEpochDay - startDateEpochDay).toInt()
+        return if (diff < 0) 0 else diff
+    }
+
+    fun isChallengeCompleted(
+        todayEpochDay: Long,
+        startDateEpochDay: Long,
+        totalDays: Int = 90
+    ): Boolean {
+        return (todayEpochDay - startDateEpochDay).toInt() > totalDays
+    }
+
+    suspend fun calculateReadingStreak(todayEpochDay: Long): Int {
+        val logs = dailyLogDao.getCompletedLogsForHabit("reading_20min").firstOrNull().orEmpty()
+        val completedDates = logs.filter { it.isCompleted }.map { it.dateEpochDay }.toSet()
+        if (completedDates.isEmpty()) return 0
+
+        var streak = 0
+        var checkDay = if (todayEpochDay in completedDates) todayEpochDay else todayEpochDay - 1
+        while (checkDay in completedDates) {
+            streak++
+            checkDay--
+        }
+        return streak
+    }
+
     private suspend fun evaluateStreak(dateEpochDay: Long) {
         val user = userDao.getUser().firstOrNull() ?: return
         val dailyHabits = habitDao.getAllHabits().firstOrNull()?.filter { !it.isWeekly } ?: return

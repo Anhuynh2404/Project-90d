@@ -20,4 +20,7 @@ interface TimeAllocationDao {
 
     @Query("SELECT COUNT(*) FROM time_allocations WHERE dateEpochDay = :dateEpochDay")
     suspend fun getAllocationCountForDate(dateEpochDay: Long): Int
+
+    @Query("SELECT SUM(hours) FROM time_allocations WHERE dateEpochDay = :dateEpochDay")
+    suspend fun getTotalAllocatedHoursForDate(dateEpochDay: Long): Float?
 }
