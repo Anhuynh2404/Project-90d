@@ -4,14 +4,11 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
-    android:background="@android:color/transparent"
-    android:padding="0dp"
-    android:paddingStart="0dp"
-    android:paddingEnd="0dp"
-    android:paddingTop="0dp"
-    android:paddingBottom="0dp">
+    android:background="@drawable/bg_notif_card"
+    android:paddingHorizontal="12dp"
+    android:paddingVertical="10dp">
 
-    <!-- Top Command Header: Full Width Edge-to-Edge -->
+    <!-- Top Command Header: Full Width -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -28,18 +25,20 @@
                 android:id="@+id/notif_expanded_day"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="PROJECT 90 • NGÀY 12 / 90"
-                android:textColor="#48BB78"
+                android:text="🌿 PROJECT 90 • NGÀY 12 / 90"
+                android:textColor="#68D391"
                 android:textSize="12.5sp"
-                android:textStyle="bold" />
+                android:textStyle="bold"
+                android:singleLine="true" />
 
             <TextView
                 android:id="@+id/notif_expanded_countdown"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Còn 78 ngày đếm ngược đến Tháng 2"
-                android:textColor="#A0B4A5"
-                android:textSize="10sp" />
+                android:text="Còn 78 ngày • Pedometer 24/7 &amp; Pomodoro"
+                android:textColor="#B8D4C2"
+                android:textSize="10sp"
+                android:singleLine="true" />
         </LinearLayout>
 
         <TextView
@@ -48,18 +47,18 @@
             android:layout_height="wrap_content"
             android:text="🔥 7 Ngày Chuỗi"
             android:textColor="#FFB800"
-            android:textSize="11sp"
+            android:textSize="10.5sp"
             android:textStyle="bold"
             android:background="@drawable/bg_notif_streak"
-            android:paddingHorizontal="8dp"
-            android:paddingVertical="2.5dp" />
+            android:paddingHorizontal="9dp"
+            android:paddingVertical="3dp" />
     </LinearLayout>
 
-    <!-- Main Progress Bar: Full Width -->
+    <!-- Main Progress Bar -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="6dp"
+        android:layout_marginTop="7dp"
         android:orientation="vertical">
 
         <LinearLayout
@@ -71,16 +70,16 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="TIẾN ĐỘ HÔM NAY"
+                android:text="TIẾN ĐỘ KỶ LUẬT HÔM NAY"
                 android:textColor="#FFFFFF"
-                android:textSize="10.5sp"
+                android:textSize="10sp"
                 android:textStyle="bold" />
 
             <TextView
                 android:id="@+id/notif_expanded_progress_label"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="8 / 13 Mục (62%)"
+                android:text="8 / 12 Mục (67%)"
                 android:textColor="#68D391"
                 android:textSize="10.5sp"
                 android:textStyle="bold" />
@@ -93,18 +92,18 @@
             android:layout_height="7dp"
             android:layout_marginTop="3dp"
             android:max="100"
-            android:progress="62"
+            android:progress="67"
             android:progressDrawable="@drawable/notif_progressbar" />
     </LinearLayout>
 
-    <!-- Mini Dashboard 4-Tile Grid: Divided equally with weight 1 -->
+    <!-- Mini Dashboard 4-Tile Grid -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="6dp"
+        android:layout_marginTop="7dp"
         android:orientation="horizontal">
 
-        <!-- Stat 1: Steps -->
+        <!-- Stat 1: Steps (Pedometer 24/7) -->
         <LinearLayout
             android:layout_width="0dp"
             android:layout_height="wrap_content"
@@ -119,9 +118,9 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="👟 BƯỚC"
-                android:textColor="#8EAF95"
-                android:textSize="9sp"
+                android:text="👟 BƯỚC CHÂN"
+                android:textColor="#9AE6B4"
+                android:textSize="8.5sp"
                 android:textStyle="bold"
                 android:gravity="center" />
 
@@ -153,9 +152,9 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="💧 NƯỚC"
-                android:textColor="#8EAF95"
-                android:textSize="9sp"
+                android:text="💧 NƯỚC UỐNG"
+                android:textColor="#9AE6B4"
+                android:textSize="8.5sp"
                 android:textStyle="bold"
                 android:gravity="center" />
 
@@ -172,7 +171,7 @@
                 android:gravity="center" />
         </LinearLayout>
 
-        <!-- Stat 3: Movement Pushup/Squat -->
+        <!-- Stat 3: Pomodoro / Thể lực -->
         <LinearLayout
             android:layout_width="0dp"
             android:layout_height="wrap_content"
@@ -187,9 +186,9 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="🏋️ THỂ LỰC"
-                android:textColor="#8EAF95"
-                android:textSize="9sp"
+                android:text="⏱️ POMODORO"
+                android:textColor="#9AE6B4"
+                android:textSize="8.5sp"
                 android:textStyle="bold"
                 android:gravity="center" />
 
@@ -198,7 +197,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="1dp"
-                android:text="50 Hít • 100 Sq"
+                android:text="25:00 Sẵn sàng"
                 android:textColor="#68D391"
                 android:textSize="9.5sp"
                 android:textStyle="bold"
@@ -221,8 +220,8 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="🚫 NO SUGAR"
-                android:textColor="#8EAF95"
-                android:textSize="9sp"
+                android:textColor="#9AE6B4"
+                android:textSize="8.5sp"
                 android:textStyle="bold"
                 android:gravity="center" />
 
@@ -240,7 +239,7 @@
         </LinearLayout>
     </LinearLayout>
 
-    <!-- Checklist Status Summary Box: Full Width Container -->
+    <!-- Checklist Status Summary Box -->
     <LinearLayout
         android:id="@+id/notif_expanded_summary_box"
         android:layout_width="match_parent"
@@ -270,18 +269,18 @@
             android:lineSpacingExtra="1.5dp" />
     </LinearLayout>
 
-    <!-- Interactive Action Buttons: Full Width Edge-to-Edge with Weights -->
+    <!-- Interactive Quick Action Buttons -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="6dp"
+        android:layout_marginTop="7dp"
         android:orientation="horizontal">
 
         <TextView
             android:id="@+id/notif_btn_open_app"
             android:layout_width="0dp"
-            android:layout_height="32dp"
-            android:layout_weight="1.2"
+            android:layout_height="34dp"
+            android:layout_weight="1"
             android:background="@drawable/bg_notif_button_primary"
             android:gravity="center"
             android:text="📋 DASHBOARD"
@@ -290,31 +289,31 @@
             android:textStyle="bold"
             android:singleLine="true"
             android:paddingHorizontal="4dp"
-            android:layout_marginEnd="3dp" />
+            android:layout_marginEnd="4dp" />
 
         <TextView
             android:id="@+id/notif_btn_add_water"
             android:layout_width="0dp"
-            android:layout_height="32dp"
-            android:layout_weight="1"
+            android:layout_height="34dp"
+            android:layout_weight="1.15"
             android:background="@drawable/bg_notif_button_subtle"
             android:gravity="center"
-            android:text="💧 +250ML"
+            android:text="💧 Nạp 250ml nước"
             android:textColor="#4FD1C5"
             android:textSize="10sp"
             android:textStyle="bold"
             android:singleLine="true"
             android:paddingHorizontal="4dp"
-            android:layout_marginEnd="3dp" />
+            android:layout_marginEnd="4dp" />
 
         <TextView
             android:id="@+id/notif_btn_add_steps"
             android:layout_width="0dp"
-            android:layout_height="32dp"
+            android:layout_height="34dp"
             android:layout_weight="1"
             android:background="@drawable/bg_notif_button_subtle"
             android:gravity="center"
-            android:text="👟 +500 BƯỚC"
+            android:text="👟 +500 bước"
             android:textColor="#FFB800"
             android:textSize="10sp"
             android:textStyle="bold"

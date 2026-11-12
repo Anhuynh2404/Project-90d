@@ -606,30 +606,49 @@ class Project90ViewModel @JvmOverloads constructor(
         _readingTimerSeconds.value = 20 * 60
     }
 
-    // Pomodoro Deep Focus Timer (Detox Upgrade)
+    // Pomodoro Deep Focus Timer (Detox Upgrade & PHẦN 5 Live Notification)
+    private fun syncPomodoroNotification(isRunning: Boolean) {
+        try {
+            HabitNotificationHelper.postOrCancelPomodoroNotification(
+                context = getApplication(),
+                isRunning = isRunning,
+                remainingSeconds = _pomodoroRemainingSeconds.value,
+                durationMinutes = _pomodoroDurationMinutes.value,
+                completedSessions = _pomodoroCompletedSessions.value
+            )
+        } catch (_: Throwable) {}
+    }
+
     fun setPomodoroDuration(minutes: Int) {
         pomodoroJob?.cancel()
         _isPomodoroRunning.value = false
         _pomodoroDurationMinutes.value = minutes
         _pomodoroRemainingSeconds.value = minutes * 60
+        syncPomodoroNotification(isRunning = false)
     }
 
     fun togglePomodoroTimer() {
         if (_isPomodoroRunning.value) {
             pomodoroJob?.cancel()
             _isPomodoroRunning.value = false
+            syncPomodoroNotification(isRunning = false)
         } else {
             _isPomodoroRunning.value = true
+            syncPomodoroNotification(isRunning = true)
             pomodoroJob = viewModelScope.launch {
                 while (_pomodoroRemainingSeconds.value > 0 && _isPomodoroRunning.value) {
                     delay(1000)
                     _pomodoroRemainingSeconds.value -= 1
+                    if (_pomodoroRemainingSeconds.value % 5 == 0 || _pomodoroRemainingSeconds.value <= 10) {
+                        syncPomodoroNotification(isRunning = true)
+                    }
                 }
                 if (_pomodoroRemainingSeconds.value == 0) {
                     _pomodoroCompletedSessions.value += 1
                     _pomodoroRemainingSeconds.value = _pomodoroDurationMinutes.value * 60
                 }
                 _isPomodoroRunning.value = false
+                syncPomodoroNotification(isRunning = false)
             }
         }
     }
@@ -638,6 +657,7 @@ class Project90ViewModel @JvmOverloads constructor(
         pomodoroJob?.cancel()
         _isPomodoroRunning.value = false
         _pomodoroRemainingSeconds.value = _pomodoroDurationMinutes.value * 60
+        syncPomodoroNotification(isRunning = false)
     }
 
     fun toggleFocusShield() {
@@ -646,6 +666,7 @@ class Project90ViewModel @JvmOverloads constructor(
         if (!nextState && _isPomodoroRunning.value) {
             pomodoroJob?.cancel()
             _isPomodoroRunning.value = false
+            syncPomodoroNotification(isRunning = false)
         }
     }
 

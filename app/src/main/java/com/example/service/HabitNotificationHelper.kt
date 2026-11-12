@@ -26,15 +26,19 @@ import java.util.Locale
 
 /**
  * PHẦN 5: Nâng cấp Giao diện Thanh Thông Báo Đẩy (Push Notification UI)
- * - Kết hợp Custom RemoteViews bo góc hiện đại + DecoratedCustomViewStyle + Action Buttons
- * - Nút bấm nhanh trực tiếp trên thanh thông báo: "💧 Nạp 250ml nước" và "👟 +500 bước"
- * - Có cơ chế fallback sang NotificationCompat.BigTextStyle() trong khối try-catch để không bao giờ crash trên mọi dòng máy OEM
+ * - Hỗ trợ cả Thông báo Foreground Service Đếm bước chân 24/7 (RemoteViews bo góc hiện đại + BigTextStyle)
+ *   VÀ Thông báo Đồng hồ Pomodoro Khóa tập trung (ProgressBar đếm ngược trực tiếp + BigTextStyle).
+ * - Tích hợp các nút bấm nhanh (Action Buttons): "💧 Nạp 250ml nước" và "👟 +500 bước" ngay trên thanh thông báo.
  */
 object HabitNotificationHelper {
 
     const val CHANNEL_ID = "project90_dashboard_fixed_channel"
     const val CHANNEL_NAME = "Project 90 Ongoing Habit & Pedometer 24/7"
     const val NOTIFICATION_ID = 9001
+    const val POMODORO_NOTIFICATION_ID = 9002
+
+    @Volatile
+    private var activePomodoroText: String? = null
 
     fun createNotificationChannel(context: Context) {
         try {
@@ -44,7 +48,7 @@ object HabitNotificationHelper {
                     CHANNEL_NAME,
                     NotificationManager.IMPORTANCE_LOW
                 ).apply {
-                    description = "Bảng Dashboard theo dõi bước chân 24/7, nước uống và kỷ luật 90 ngày trên thanh thông báo"
+                    description = "Bảng Dashboard theo dõi bước chân 24/7, đồng hồ Pomodoro, nước uống và kỷ luật 90 ngày"
                     setShowBadge(true)
                     lockscreenVisibility = Notification.VISIBILITY_PUBLIC
                     enableVibration(false)
@@ -54,6 +58,89 @@ object HabitNotificationHelper {
                 val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
                 manager?.createNotificationChannel(channel)
             }
+        } catch (_: Exception) {}
+    }
+
+    /**
+     * PHẦN 5: Cập nhật thông báo đếm ngược trực tiếp của Đồng hồ Pomodoro (Khóa tập trung)
+     */
+    fun postOrCancelPomodoroNotification(
+        context: Context,
+        isRunning: Boolean,
+        remainingSeconds: Int,
+        durationMinutes: Int,
+        completedSessions: Int
+    ) {
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                val granted = ContextCompat.checkSelfPermission(
+                    context,
+                    android.Manifest.permission.POST_NOTIFICATIONS
+                ) == PackageManager.PERMISSION_GRANTED
+                if (!granted) return
+            }
+
+            val manager = NotificationManagerCompat.from(context)
+            if (!isRunning) {
+                activePomodoroText = null
+                manager.cancel(POMODORO_NOTIFICATION_ID)
+                postOrUpdateNotification(context)
+                return
+            }
+
+            createNotificationChannel(context)
+            val mins = remainingSeconds / 60
+            val secs = remainingSeconds % 60
+            val formattedTime = String.format(Locale.US, "%02d:%02d", mins, secs)
+            activePomodoroText = "⏱️ $formattedTime"
+
+            val totalSecs = (durationMinutes * 60).coerceAtLeast(1)
+            val elapsedSecs = (totalSecs - remainingSeconds).coerceIn(0, totalSecs)
+
+            val openAppIntent = Intent(context, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            }
+            val openAppPendingIntent = PendingIntent.getActivity(
+                context,
+                201,
+                openAppIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+
+            val addWaterIntent = Intent(context, NotificationActionReceiver::class.java).apply {
+                action = NotificationActionReceiver.ACTION_ADD_WATER
+            }
+            val addWaterPendingIntent = PendingIntent.getBroadcast(
+                context,
+                202,
+                addWaterIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+
+            val notif = NotificationCompat.Builder(context, CHANNEL_ID)
+                .setSmallIcon(R.drawable.ic_stat_flame)
+                .setContentTitle("⏱️ Khóa Tập Trung Pomodoro • Còn $formattedTime")
+                .setContentText("Đang bật Khiên Chặn Thông Báo • Đã hoàn tất $completedSessions phiên sâu")
+                .setSubText("Deep Work Mode")
+                .setStyle(
+                    NotificationCompat.BigTextStyle()
+                        .setBigContentTitle("⏱️ ĐỒNG HỒ POMODORO • CÒN $formattedTime")
+                        .bigText(
+                            "🛡️ Khiên tập trung đang kích hoạt (Phiên ${durationMinutes} phút).\n" +
+                                    "🔥 Số phiên hoàn thành hôm nay: $completedSessions phiên.\n" +
+                                    "💧 Đừng quên bổ sung nước trong lúc làm việc sâu!"
+                        )
+                )
+                .setProgress(totalSecs, elapsedSecs, false)
+                .addAction(R.drawable.ic_stat_flame, "💧 Nạp 250ml nước", addWaterPendingIntent)
+                .setContentIntent(openAppPendingIntent)
+                .setOngoing(true)
+                .setOnlyAlertOnce(true)
+                .setPriority(NotificationCompat.PRIORITY_LOW)
+                .setCategory(NotificationCompat.CATEGORY_PROGRESS)
+                .build()
+
+            manager.notify(POMODORO_NOTIFICATION_ID, notif)
         } catch (_: Exception) {}
     }
 
@@ -123,14 +210,14 @@ object HabitNotificationHelper {
         )
 
         val collapsedTitle = if (dayNumber == 0) {
-            "PROJECT 90 • KHỞI ĐỘNG • 👟 ${numberFormat.format(stepCount)} bước"
+            "🌿 PROJECT 90 • KHỞI ĐỘNG • 👟 ${numberFormat.format(stepCount)} bước"
         } else {
-            "PROJECT 90 • NGÀY $dayNumber/$totalDays • 👟 ${numberFormat.format(stepCount)}"
+            "🌿 PROJECT 90 • NGÀY $dayNumber/$totalDays • 👟 ${numberFormat.format(stepCount)}"
         }
         val expandedTitle = if (dayNumber == 0) {
-            "PROJECT 90 • KHỞI ĐỘNG HÀNH TRÌNH"
+            "🌿 PROJECT 90 • KHỞI ĐỘNG HÀNH TRÌNH"
         } else {
-            "PROJECT 90 • NGÀY $dayNumber / $totalDays"
+            "🌿 PROJECT 90 • NGÀY $dayNumber / $totalDays"
         }
         val countdownText = if (dayNumber == 0) {
             "Sẵn sàng bứt phá 90 ngày kỷ luật thép"
@@ -150,8 +237,14 @@ object HabitNotificationHelper {
             append(pendingHabitsText)
         }
 
+        val pomodoroOrWorkoutLabel = activePomodoroText ?: if (pushupDone && squatDone) {
+            "50/50 • 100/100 ✅"
+        } else {
+            "50 Hít • 100 Sq"
+        }
+
         return try {
-            // 1. Collapsed RemoteViews
+            // 1. Collapsed RemoteViews (Bo góc hiện đại)
             val collapsedViews = RemoteViews(context.packageName, R.layout.notification_dashboard_collapsed).apply {
                 setTextViewText(R.id.notif_collapsed_title, collapsedTitle)
                 setTextViewText(R.id.notif_collapsed_streak, "🔥 ${currentStreak}N")
@@ -159,10 +252,11 @@ object HabitNotificationHelper {
                 setTextViewText(R.id.notif_collapsed_progress_text, "$completedCount/$totalCount ($percent%)")
                 if (isCompletedAll) {
                     setTextViewText(R.id.notif_collapsed_status, "🔥 100% Hoàn thành! 💧 ${numberFormat.format(waterMl)}ml • 👟 ${numberFormat.format(stepCount)} bước")
-                    setTextColor(R.id.notif_collapsed_status, android.graphics.Color.parseColor("#48BB78"))
+                    setTextColor(R.id.notif_collapsed_status, android.graphics.Color.parseColor("#68D391"))
                 } else {
-                    setTextViewText(R.id.notif_collapsed_status, "💧 ${numberFormat.format(waterMl)}/2000ml • 👟 ${numberFormat.format(stepCount)}/10k bước (Vuốt xuống để nạp nhanh)")
-                    setTextColor(R.id.notif_collapsed_status, android.graphics.Color.parseColor("#C6D8CB"))
+                    val pomoPrefix = if (activePomodoroText != null) "$activePomodoroText • " else ""
+                    setTextViewText(R.id.notif_collapsed_status, "${pomoPrefix}💧 ${numberFormat.format(waterMl)}/2000ml • 👟 ${numberFormat.format(stepCount)}/10k bước")
+                    setTextColor(R.id.notif_collapsed_status, android.graphics.Color.parseColor("#E2F2E8"))
                 }
             }
 
@@ -178,10 +272,7 @@ object HabitNotificationHelper {
                 // 4 Mini Dashboard Tiles
                 setTextViewText(R.id.notif_stat_steps, "${numberFormat.format(stepCount)} / 10k")
                 setTextViewText(R.id.notif_stat_water, "${numberFormat.format(waterMl)} / 2L")
-                setTextViewText(
-                    R.id.notif_stat_workout,
-                    if (pushupDone && squatDone) "50/50 • 100/100 ✅" else "50 Hít • 100 Sq"
-                )
+                setTextViewText(R.id.notif_stat_workout, pomodoroOrWorkoutLabel)
                 setTextViewText(
                     R.id.notif_stat_sugar,
                     if (noSugarDone) "ĐÃ ĐẠT ✅" else "CHƯA ĐẠT ⚠️"
@@ -238,7 +329,6 @@ object HabitNotificationHelper {
 
             notification
         } catch (_: Exception) {
-            // Fallback chuẩn BigTextStyle nếu thiết bị không tương thích Custom RemoteViews
             NotificationCompat.Builder(context, CHANNEL_ID)
                 .setSmallIcon(R.drawable.ic_stat_flame)
                 .setContentTitle(fallbackTitle)
@@ -296,7 +386,6 @@ object HabitNotificationHelper {
                 val currentStreak = user?.currentStreak ?: 0
                 val isCompletedAll = pendingHabits.isEmpty() && dailyHabits.isNotEmpty()
 
-                // Lấy số bước lớn nhất giữa Room Database và bộ nhớ đệm của StepCounterManager
                 val stepLog = logsMap["pedometer_10k"]
                 val persistedSensorSteps = try {
                     context.getSharedPreferences(StepCounterManager.PREFS_PEDOMETER, Context.MODE_PRIVATE)
@@ -325,7 +414,7 @@ object HabitNotificationHelper {
                         }
                     }
                     val more = if (pendingHabits.size > 5) "\n(+${pendingHabits.size - 5} mục khác)" else ""
-                    "$items$more\n👉 Bấm '💧 +250ML' hoặc '👟 +500 BƯỚC' bên dưới để cập nhật nhanh!"
+                    "$items$more\n👉 Bấm '💧 Nạp 250ml nước' hoặc '👟 +500 bước' bên dưới!"
                 } else {
                     "Toàn bộ mục tiêu trong ngày đã hoàn tất xuất sắc! Kỷ luật thép được duy trì."
                 }
