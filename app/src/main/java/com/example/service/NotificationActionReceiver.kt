@@ -4,6 +4,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import com.example.Project90Application
+import com.example.sensor.StepCounterManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.firstOrNull
@@ -23,7 +24,9 @@ class NotificationActionReceiver : BroadcastReceiver() {
 
         val action = intent.action
         if (action == ACTION_REPOST) {
-            PersistentHabitNotificationService.startOrUpdate(context)
+            try {
+                PersistentHabitNotificationService.startOrUpdate(context)
+            } catch (_: Exception) {}
             return
         }
 
@@ -32,18 +35,22 @@ class NotificationActionReceiver : BroadcastReceiver() {
         val todayEpochDay = LocalDate.now().toEpochDay()
 
         CoroutineScope(Dispatchers.IO).launch {
-            when (action) {
-                ACTION_ADD_WATER -> {
-                    repo.addWater(todayEpochDay, 250)
-                    HabitNotificationHelper.postOrUpdateNotification(context)
+            try {
+                when (action) {
+                    ACTION_ADD_WATER -> {
+                        repo.addWater(todayEpochDay, 250)
+                        HabitNotificationHelper.postOrUpdateNotification(context)
+                    }
+                    ACTION_ADD_STEPS -> {
+                        val logs = repo.getLogsForDate(todayEpochDay).firstOrNull() ?: emptyList()
+                        val currentSteps = logs.find { it.habitId == "pedometer_10k" }?.progressValue ?: 0
+                        val newTotal = currentSteps + 500
+                        StepCounterManager(context).setStepCount(newTotal)
+                        repo.updateSteps(todayEpochDay, newTotal)
+                        HabitNotificationHelper.postOrUpdateNotification(context)
+                    }
                 }
-                ACTION_ADD_STEPS -> {
-                    val logs = repo.getLogsForDate(todayEpochDay).firstOrNull() ?: emptyList()
-                    val currentSteps = logs.find { it.habitId == "pedometer_10k" }?.progressValue ?: 0
-                    repo.updateSteps(todayEpochDay, currentSteps + 500)
-                    HabitNotificationHelper.postOrUpdateNotification(context)
-                }
-            }
+            } catch (_: Exception) {}
         }
     }
 }

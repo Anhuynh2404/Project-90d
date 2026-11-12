@@ -5,6 +5,7 @@ import android.content.Context
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.Project90Application
+import com.example.data.local.entity.AccountWalletEntity
 import com.example.data.local.entity.DailyJournalEntity
 import com.example.data.local.entity.DailyLogEntity
 import com.example.data.local.entity.DebtEntity
@@ -26,6 +27,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -90,7 +92,7 @@ class Project90ViewModel @JvmOverloads constructor(
     private val _currentTab = MutableStateFlow(AppTab.DASHBOARD)
     val currentTab: StateFlow<AppTab> = _currentTab.asStateFlow()
 
-    // Dynamic Theme & Custom Background State (PHẦN 3)
+    // Dynamic Theme & Custom Background State
     private val initialTheme = AppThemePreset.fromId(prefs.getString(KEY_THEME_PRESET, AppThemePreset.ECO_GREEN.id))
     private val initialBackground = AppBackgroundPreset.fromId(
         prefs.getString(KEY_BACKGROUND_PRESET, AppBackgroundPreset.MISTY_BOTANICAL.id)
@@ -102,7 +104,7 @@ class Project90ViewModel @JvmOverloads constructor(
     private val _backgroundPreset = MutableStateFlow(initialBackground)
     val backgroundPreset: StateFlow<AppBackgroundPreset> = _backgroundPreset.asStateFlow()
 
-    // Start Date Configuration & Onboarding Dialog State (PHẦN 4)
+    // Start Date Configuration & Onboarding Dialog State
     private val defaultStartEpoch = LocalDate.of(2026, 11, 7).toEpochDay()
     private val _startDateEpochDay = MutableStateFlow(
         prefs.getLong(KEY_START_DATE_EPOCH, defaultStartEpoch)
@@ -158,6 +160,18 @@ class Project90ViewModel @JvmOverloads constructor(
 
     val totalSavings: StateFlow<Long?> = repository.totalSavingsFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0L)
+
+    val wallets: StateFlow<List<AccountWalletEntity>> = (try {
+        repository.allWalletsFlow
+    } catch (_: Exception) {
+        flowOf(emptyList())
+    }).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val totalWalletBalance: StateFlow<Long?> = (try {
+        repository.totalWalletBalanceFlow
+    } catch (_: Exception) {
+        flowOf(0L)
+    }).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0L)
 
     val todayTimeAllocations: StateFlow<List<TimeAllocationEntity>> =
         repository.getTimeAllocationsForDate(todayEpochDay)
@@ -248,7 +262,7 @@ class Project90ViewModel @JvmOverloads constructor(
 
     private val dateFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy")
 
-    // PHẦN 4: Vòng tròn đếm ngược 90 ngày tính theo công thức (Ngày hiện tại - Ngày bắt đầu)
+    // Vòng tròn đếm ngược 90 ngày tính theo công thức (Ngày hiện tại - Ngày bắt đầu)
     val dashboardSummary: StateFlow<DashboardSummary> = combine(
         user,
         habits,
@@ -329,11 +343,15 @@ class Project90ViewModel @JvmOverloads constructor(
         pomodoroJob?.cancel()
     }
 
+    fun onActivityRecognitionPermissionGranted() {
+        stepCounterManager.refreshPermissionAndReconnect()
+        PersistentHabitNotificationService.reconnectPedometerIfRunning(getApplication())
+    }
+
     fun selectTab(tab: AppTab) {
         _currentTab.value = tab
     }
 
-    // PHẦN 3: Thay đổi màu sắc chủ đề (Dynamic Theme) và Hình nền tùy chỉnh (Custom Background)
     fun selectThemePreset(preset: AppThemePreset) {
         _themePreset.value = preset
         DynamicThemeState.activePreset = preset
@@ -346,7 +364,6 @@ class Project90ViewModel @JvmOverloads constructor(
         prefs.edit().putString(KEY_BACKGROUND_PRESET, preset.id).apply()
     }
 
-    // PHẦN 4: Thiết lập Ngày bắt đầu (Start Date Configuration)
     fun openStartDateDialog() {
         _showStartDateDialog.value = true
     }
@@ -395,12 +412,33 @@ class Project90ViewModel @JvmOverloads constructor(
     }
 
     fun addManualSteps(steps: Int) {
-        val existingLogSteps = todayLogs.value.firstOrNull { it.habitId == "pedometer_10k" }?.progressValue ?: 0
-        val newTotal = existingLogSteps + steps
+        val existingLogSteps = todayLogs.value.firstOrNull { it.habitId == "pedometer_10k" }?.progressValue
+            ?: stepCounterManager.stepCount.value
+        val newTotal = (existingLogSteps + steps).coerceAtLeast(0)
         stepCounterManager.setStepCount(newTotal)
         viewModelScope.launch {
             repository.updateSteps(todayEpochDay, newTotal)
             HabitNotificationHelper.postOrUpdateNotification(getApplication())
+        }
+    }
+
+    // Finance: Wallets (Quản lý Ví MoMo, Cake, Ngân hàng)
+    fun addWallet(name: String, balance: Long, iconType: String = "BANK", packageKeywords: String = "") {
+        if (name.isBlank() || balance < 0L) return
+        viewModelScope.launch {
+            repository.addWallet(name, balance, iconType, packageKeywords)
+        }
+    }
+
+    fun updateWalletBalance(walletId: Long, newBalance: Long) {
+        viewModelScope.launch {
+            repository.updateWalletBalance(walletId, newBalance)
+        }
+    }
+
+    fun deleteWallet(walletId: Long) {
+        viewModelScope.launch {
+            repository.deleteWallet(walletId)
         }
     }
 
@@ -433,7 +471,7 @@ class Project90ViewModel @JvmOverloads constructor(
         }
     }
 
-    // Finance: Debts (Cho vay / Đi mượn)
+    // Finance: Loan & Debt Management (PHẦN 3)
     fun addDebt(
         type: String,
         personName: String,
@@ -444,6 +482,38 @@ class Project90ViewModel @JvmOverloads constructor(
         if (amount <= 0L || personName.isBlank()) return
         viewModelScope.launch {
             repository.addDebt(type, personName, amount, dueDateEpochDay, note)
+        }
+    }
+
+    fun addLoanDebt(
+        loanType: String,
+        lenderName: String,
+        totalLoanAmount: Long,
+        monthlyInstallmentAmount: Long,
+        totalMonths: Int,
+        paidMonths: Int,
+        dueDayOfMonth: Int,
+        note: String
+    ) {
+        if (totalLoanAmount <= 0L || lenderName.isBlank() || totalMonths <= 0) return
+        viewModelScope.launch {
+            repository.addLoanDebt(
+                loanType = loanType,
+                lenderName = lenderName,
+                totalLoanAmount = totalLoanAmount,
+                monthlyInstallmentAmount = monthlyInstallmentAmount,
+                totalMonths = totalMonths,
+                paidMonths = paidMonths,
+                dueDayOfMonth = dueDayOfMonth,
+                note = note
+            )
+        }
+    }
+
+    fun payLoanMonthlyInstallment(debt: DebtEntity, walletName: String = "Vietcombank") {
+        viewModelScope.launch {
+            repository.payLoanMonthlyInstallment(debt, walletName)
+            HabitNotificationHelper.postOrUpdateNotification(getApplication())
         }
     }
 

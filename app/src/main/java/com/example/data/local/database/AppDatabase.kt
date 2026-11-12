@@ -10,6 +10,7 @@ import com.example.data.local.dao.HabitDao
 import com.example.data.local.dao.JournalDao
 import com.example.data.local.dao.TimeAllocationDao
 import com.example.data.local.dao.UserDao
+import com.example.data.local.entity.AccountWalletEntity
 import com.example.data.local.entity.DailyJournalEntity
 import com.example.data.local.entity.DailyLogEntity
 import com.example.data.local.entity.DebtEntity
@@ -28,9 +29,10 @@ import com.example.data.local.entity.UserEntity
         DebtEntity::class,
         SavingsGoalEntity::class,
         TimeAllocationEntity::class,
-        DailyJournalEntity::class
+        DailyJournalEntity::class,
+        AccountWalletEntity::class
     ],
-    version = 2,
+    version = 3,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {

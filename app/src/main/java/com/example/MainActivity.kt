@@ -169,28 +169,54 @@ fun Project90App(
         )
     }
 
-    val notificationPermissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission()
-    ) { granted ->
-        hasNotificationPermission = granted
-        if (granted) {
+    var hasActivityRecognitionPermission by remember {
+        mutableStateOf(
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                ContextCompat.checkSelfPermission(context, Manifest.permission.ACTIVITY_RECOGNITION) == PackageManager.PERMISSION_GRANTED
+            } else true
+        )
+    }
+
+    val runtimePermissionsLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { result ->
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            result[Manifest.permission.POST_NOTIFICATIONS]?.let { hasNotificationPermission = it }
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            result[Manifest.permission.ACTIVITY_RECOGNITION]?.let { granted ->
+                hasActivityRecognitionPermission = granted
+                if (granted) {
+                    viewModel.onActivityRecognitionPermissionGranted()
+                }
+            }
+        }
+        try {
             HabitNotificationHelper.postOrUpdateNotification(context)
             PersistentHabitNotificationService.startOrUpdate(context)
-        }
+        } catch (_: Exception) {}
     }
 
     LaunchedEffect(Unit) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            if (!hasNotificationPermission) {
-                notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-            } else {
-                HabitNotificationHelper.postOrUpdateNotification(context)
-                PersistentHabitNotificationService.startOrUpdate(context)
-            }
-        } else {
+        val permissionsToRequest = mutableListOf<String>()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !hasNotificationPermission) {
+            permissionsToRequest.add(Manifest.permission.POST_NOTIFICATIONS)
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && !hasActivityRecognitionPermission) {
+            permissionsToRequest.add(Manifest.permission.ACTIVITY_RECOGNITION)
+        }
+
+        if (permissionsToRequest.isNotEmpty()) {
+            try {
+                runtimePermissionsLauncher.launch(permissionsToRequest.toTypedArray())
+            } catch (_: Exception) {}
+        }
+
+        try {
+            viewModel.onActivityRecognitionPermissionGranted()
             HabitNotificationHelper.postOrUpdateNotification(context)
             PersistentHabitNotificationService.startOrUpdate(context)
-        }
+        } catch (_: Exception) {}
     }
 
     BackHandler(enabled = currentTab != AppTab.DASHBOARD) {
@@ -254,7 +280,7 @@ fun Project90App(
                     .fillMaxSize()
                     .padding(innerPadding)
             ) {
-                AnimatedVisibility(visible = !hasNotificationPermission) {
+                AnimatedVisibility(visible = !hasNotificationPermission || !hasActivityRecognitionPermission) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -277,7 +303,7 @@ fun Project90App(
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = "Chưa cấp quyền! Chạm để bật thông báo ghim 24/7",
+                                text = "Chưa cấp quyền! Chạm để bật thông báo ghim 24/7 & Đếm bước chân",
                                 color = Color.White,
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
@@ -288,8 +314,17 @@ fun Project90App(
 
                         Button(
                             onClick = {
-                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                                    notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                                val req = mutableListOf<String>()
+                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !hasNotificationPermission) {
+                                    req.add(Manifest.permission.POST_NOTIFICATIONS)
+                                }
+                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && !hasActivityRecognitionPermission) {
+                                    req.add(Manifest.permission.ACTIVITY_RECOGNITION)
+                                }
+                                if (req.isNotEmpty()) {
+                                    try {
+                                        runtimePermissionsLauncher.launch(req.toTypedArray())
+                                    } catch (_: Exception) {}
                                 }
                             },
                             colors = ButtonDefaults.buttonColors(containerColor = ForestGreenDark),

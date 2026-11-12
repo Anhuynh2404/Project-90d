@@ -15,6 +15,7 @@ import androidx.core.content.ContextCompat
 import com.example.MainActivity
 import com.example.Project90Application
 import com.example.R
+import com.example.sensor.StepCounterManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.firstOrNull
@@ -23,29 +24,37 @@ import java.text.NumberFormat
 import java.time.LocalDate
 import java.util.Locale
 
+/**
+ * PHẦN 5: Nâng cấp Giao diện Thanh Thông Báo Đẩy (Push Notification UI)
+ * - Kết hợp Custom RemoteViews bo góc hiện đại + DecoratedCustomViewStyle + Action Buttons
+ * - Nút bấm nhanh trực tiếp trên thanh thông báo: "💧 Nạp 250ml nước" và "👟 +500 bước"
+ * - Có cơ chế fallback sang NotificationCompat.BigTextStyle() trong khối try-catch để không bao giờ crash trên mọi dòng máy OEM
+ */
 object HabitNotificationHelper {
 
     const val CHANNEL_ID = "project90_dashboard_fixed_channel"
-    const val CHANNEL_NAME = "Project 90 Ongoing Habit Checklist"
+    const val CHANNEL_NAME = "Project 90 Ongoing Habit & Pedometer 24/7"
     const val NOTIFICATION_ID = 9001
 
     fun createNotificationChannel(context: Context) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                CHANNEL_ID,
-                CHANNEL_NAME,
-                NotificationManager.IMPORTANCE_LOW
-            ).apply {
-                description = "Bảng Dashboard theo dõi thói quen chuyên nghiệp ghim cố định 24/7 trên thanh thông báo"
-                setShowBadge(true)
-                lockscreenVisibility = Notification.VISIBILITY_PUBLIC
-                enableVibration(false)
-                enableLights(false)
-            }
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                val channel = NotificationChannel(
+                    CHANNEL_ID,
+                    CHANNEL_NAME,
+                    NotificationManager.IMPORTANCE_LOW
+                ).apply {
+                    description = "Bảng Dashboard theo dõi bước chân 24/7, nước uống và kỷ luật 90 ngày trên thanh thông báo"
+                    setShowBadge(true)
+                    lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+                    enableVibration(false)
+                    enableLights(false)
+                }
 
-            val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
-            manager?.createNotificationChannel(channel)
-        }
+                val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+                manager?.createNotificationChannel(channel)
+            }
+        } catch (_: Exception) {}
     }
 
     fun buildDashboardNotification(
@@ -66,7 +75,7 @@ object HabitNotificationHelper {
     ): Notification {
         createNotificationChannel(context)
 
-        val percent = if (totalCount > 0) ((completedCount.toFloat() / totalCount.toFloat()) * 100).toInt() else 0
+        val percent = if (totalCount > 0) ((completedCount.toFloat() / totalCount.toFloat()) * 100).toInt().coerceIn(0, 100) else 0
         val numberFormat = NumberFormat.getInstance(Locale("vi", "VN"))
 
         // Open App PendingIntent
@@ -80,7 +89,7 @@ object HabitNotificationHelper {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        // Quick Action: Add Water (+250ml)
+        // Quick Action 1: Nạp 250ml nước
         val addWaterIntent = Intent(context, NotificationActionReceiver::class.java).apply {
             action = NotificationActionReceiver.ACTION_ADD_WATER
         }
@@ -91,7 +100,7 @@ object HabitNotificationHelper {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        // Quick Action: Add Steps (+500 steps)
+        // Quick Action 2: Cộng nhanh +500 bước
         val addStepsIntent = Intent(context, NotificationActionReceiver::class.java).apply {
             action = NotificationActionReceiver.ACTION_ADD_STEPS
         }
@@ -102,82 +111,7 @@ object HabitNotificationHelper {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val collapsedTitle = if (dayNumber == 0) {
-            "PROJECT 90 • KHỞI ĐỘNG (Bắt đầu 07/11)"
-        } else {
-            "PROJECT 90 • NGÀY $dayNumber/$totalDays"
-        }
-        val expandedTitle = if (dayNumber == 0) {
-            "PROJECT 90 • KHỞI ĐỘNG (BẮT ĐẦU 07/11)"
-        } else {
-            "PROJECT 90 • NGÀY $dayNumber / $totalDays"
-        }
-        val countdownText = if (dayNumber == 0) {
-            "Ngày mai chính thức bắt đầu 90 ngày bứt phá"
-        } else {
-            "Còn $daysRemainingToFeb ngày đếm ngược đến Tháng 2"
-        }
-
-        // 1. Collapsed RemoteViews
-        val collapsedViews = RemoteViews(context.packageName, R.layout.notification_dashboard_collapsed).apply {
-            setTextViewText(R.id.notif_collapsed_title, collapsedTitle)
-            setTextViewText(R.id.notif_collapsed_streak, "🔥 ${currentStreak}N")
-            setProgressBar(R.id.notif_collapsed_progressbar, 100, percent, false)
-            setTextViewText(R.id.notif_collapsed_progress_text, "$completedCount/$totalCount Đạt ($percent%)")
-            if (isCompletedAll) {
-                setTextViewText(R.id.notif_collapsed_status, "🔥 100% Hoàn thành! Chuỗi $currentStreak ngày kỷ luật thép vững chắc!")
-                setTextColor(R.id.notif_collapsed_status, android.graphics.Color.parseColor("#48BB78"))
-            } else {
-                val pendingCount = totalCount - completedCount
-                setTextViewText(R.id.notif_collapsed_status, "⚠️ Còn $pendingCount mục chưa xong hôm nay (Kéo xuống xem chi tiết)")
-                setTextColor(R.id.notif_collapsed_status, android.graphics.Color.parseColor("#C6D8CB"))
-            }
-        }
-
-        // 2. Expanded RemoteViews (Command Center Dashboard)
-        val expandedViews = RemoteViews(context.packageName, R.layout.notification_dashboard_expanded).apply {
-            setTextViewText(R.id.notif_expanded_day, expandedTitle)
-            setTextViewText(R.id.notif_expanded_countdown, countdownText)
-            setTextViewText(R.id.notif_expanded_streak, "🔥 $currentStreak Ngày Chuỗi")
-
-            setTextViewText(R.id.notif_expanded_progress_label, "$completedCount / $totalCount Mục ($percent%)")
-            setProgressBar(R.id.notif_expanded_progressbar, 100, percent, false)
-
-            // 4 Mini Dashboard Tiles
-            setTextViewText(R.id.notif_stat_steps, "${numberFormat.format(stepCount)} / 10k")
-            setTextViewText(R.id.notif_stat_water, "${numberFormat.format(waterMl)} / 2L")
-            setTextViewText(
-                R.id.notif_stat_workout,
-                if (pushupDone && squatDone) "50/50 • 100/100 ✅" else "50 Hít • 100 Sq"
-            )
-            setTextViewText(
-                R.id.notif_stat_sugar,
-                if (noSugarDone) "ĐÃ ĐẠT ✅" else "CHƯA ĐẠT ⚠️"
-            )
-            setTextColor(
-                R.id.notif_stat_sugar,
-                if (noSugarDone) android.graphics.Color.parseColor("#48BB78") else android.graphics.Color.parseColor("#FFA726")
-            )
-
-            // Summary Callout Box
-            if (isCompletedAll) {
-                setTextViewText(R.id.notif_expanded_summary_title, "🔥 XUẤT SẮC! HOÀN THÀNH 100% TOÀN BỘ MỤC TIÊU HÔM NAY")
-                setTextViewText(R.id.notif_expanded_summary_body, "Kỷ luật thép đã được giữ vững! Chuỗi $currentStreak ngày liên tiếp không một ngày lơ là.\nChúc mừng bạn đã bảo vệ chuỗi thành công!")
-                setTextColor(R.id.notif_expanded_summary_title, android.graphics.Color.parseColor("#48BB78"))
-            } else {
-                val pendingCount = totalCount - completedCount
-                setTextViewText(R.id.notif_expanded_summary_title, "⚠️ CÒN $pendingCount MỤC CHƯA HOÀN THÀNH HÔM NAY:")
-                setTextViewText(R.id.notif_expanded_summary_body, pendingHabitsText)
-                setTextColor(R.id.notif_expanded_summary_title, android.graphics.Color.parseColor("#FFA726"))
-            }
-
-            // Click Handlers for Interactive Buttons
-            setOnClickPendingIntent(R.id.notif_btn_open_app, openAppPendingIntent)
-            setOnClickPendingIntent(R.id.notif_btn_add_water, addWaterPendingIntent)
-            setOnClickPendingIntent(R.id.notif_btn_add_steps, addStepsPendingIntent)
-        }
-
-        // Resilience against dismiss attempts: if somehow cleared, instantly relaunch notification
+        // Tự động ghim lại nếu bị xóa
         val deleteIntent = Intent(context, NotificationActionReceiver::class.java).apply {
             action = NotificationActionReceiver.ACTION_REPOST
         }
@@ -188,37 +122,136 @@ object HabitNotificationHelper {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val fallbackTitle = if (isCompletedAll) {
-            "🔥 Project 90: Đã hoàn tất 100% mục tiêu hôm nay ($completedCount/$totalCount)"
+        val collapsedTitle = if (dayNumber == 0) {
+            "PROJECT 90 • KHỞI ĐỘNG • 👟 ${numberFormat.format(stepCount)} bước"
         } else {
-            "⚠️ Project 90: Còn ${totalCount - completedCount} mục chưa hoàn thành!"
+            "PROJECT 90 • NGÀY $dayNumber/$totalDays • 👟 ${numberFormat.format(stepCount)}"
+        }
+        val expandedTitle = if (dayNumber == 0) {
+            "PROJECT 90 • KHỞI ĐỘNG HÀNH TRÌNH"
+        } else {
+            "PROJECT 90 • NGÀY $dayNumber / $totalDays"
+        }
+        val countdownText = if (dayNumber == 0) {
+            "Sẵn sàng bứt phá 90 ngày kỷ luật thép"
+        } else {
+            "Còn $daysRemainingToFeb ngày • Tiến độ hôm nay: $percent%"
         }
 
-        val notification = NotificationCompat.Builder(context, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_stat_flame)
-            .setStyle(NotificationCompat.DecoratedCustomViewStyle())
-            .setContentTitle(fallbackTitle)
-            .setContentText(if (isCompletedAll) "Chúc mừng chuỗi $currentStreak ngày kỷ luật!" else "Chạm để mở Dashboard")
-            .setCustomContentView(collapsedViews)
-            .setCustomBigContentView(expandedViews)
-            .setContentIntent(openAppPendingIntent)
-            .setDeleteIntent(deletePendingIntent)
-            .setOngoing(true) // CANNOT BE SWIPED AWAY
-            .setAutoCancel(false)
-            .setPriority(NotificationCompat.PRIORITY_MAX)
-            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-            .setCategory(NotificationCompat.CATEGORY_STATUS)
-            .setOnlyAlertOnce(true)
-            .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
-            .setLocalOnly(true)
-            .build()
+        val fallbackTitle = if (isCompletedAll) {
+            "🔥 Project 90 (Ngày $dayNumber/$totalDays): Hoàn tất 100% mục tiêu!"
+        } else {
+            "🌿 Project 90 (Ngày $dayNumber/$totalDays) • 👟 ${numberFormat.format(stepCount)} bước • 💧 ${numberFormat.format(waterMl)}ml"
+        }
 
-        notification.flags = notification.flags or
-                Notification.FLAG_ONGOING_EVENT or
-                Notification.FLAG_NO_CLEAR or
-                Notification.FLAG_FOREGROUND_SERVICE
+        val bigTextSummary = buildString {
+            append("👟 Bước chân: ${numberFormat.format(stepCount)} / 10.000 bước  |  💧 Nước: ${numberFormat.format(waterMl)} / 2.000 ml\n")
+            append("📊 Hoàn thành: $completedCount/$totalCount mục ($percent%) • 🔥 Chuỗi $currentStreak ngày\n")
+            append(pendingHabitsText)
+        }
 
-        return notification
+        return try {
+            // 1. Collapsed RemoteViews
+            val collapsedViews = RemoteViews(context.packageName, R.layout.notification_dashboard_collapsed).apply {
+                setTextViewText(R.id.notif_collapsed_title, collapsedTitle)
+                setTextViewText(R.id.notif_collapsed_streak, "🔥 ${currentStreak}N")
+                setProgressBar(R.id.notif_collapsed_progressbar, 100, percent, false)
+                setTextViewText(R.id.notif_collapsed_progress_text, "$completedCount/$totalCount ($percent%)")
+                if (isCompletedAll) {
+                    setTextViewText(R.id.notif_collapsed_status, "🔥 100% Hoàn thành! 💧 ${numberFormat.format(waterMl)}ml • 👟 ${numberFormat.format(stepCount)} bước")
+                    setTextColor(R.id.notif_collapsed_status, android.graphics.Color.parseColor("#48BB78"))
+                } else {
+                    setTextViewText(R.id.notif_collapsed_status, "💧 ${numberFormat.format(waterMl)}/2000ml • 👟 ${numberFormat.format(stepCount)}/10k bước (Vuốt xuống để nạp nhanh)")
+                    setTextColor(R.id.notif_collapsed_status, android.graphics.Color.parseColor("#C6D8CB"))
+                }
+            }
+
+            // 2. Expanded RemoteViews (Command Center Dashboard)
+            val expandedViews = RemoteViews(context.packageName, R.layout.notification_dashboard_expanded).apply {
+                setTextViewText(R.id.notif_expanded_day, expandedTitle)
+                setTextViewText(R.id.notif_expanded_countdown, countdownText)
+                setTextViewText(R.id.notif_expanded_streak, "🔥 $currentStreak Ngày Chuỗi")
+
+                setTextViewText(R.id.notif_expanded_progress_label, "$completedCount / $totalCount Mục ($percent%)")
+                setProgressBar(R.id.notif_expanded_progressbar, 100, percent, false)
+
+                // 4 Mini Dashboard Tiles
+                setTextViewText(R.id.notif_stat_steps, "${numberFormat.format(stepCount)} / 10k")
+                setTextViewText(R.id.notif_stat_water, "${numberFormat.format(waterMl)} / 2L")
+                setTextViewText(
+                    R.id.notif_stat_workout,
+                    if (pushupDone && squatDone) "50/50 • 100/100 ✅" else "50 Hít • 100 Sq"
+                )
+                setTextViewText(
+                    R.id.notif_stat_sugar,
+                    if (noSugarDone) "ĐÃ ĐẠT ✅" else "CHƯA ĐẠT ⚠️"
+                )
+                setTextColor(
+                    R.id.notif_stat_sugar,
+                    if (noSugarDone) android.graphics.Color.parseColor("#48BB78") else android.graphics.Color.parseColor("#FFA726")
+                )
+
+                if (isCompletedAll) {
+                    setTextViewText(R.id.notif_expanded_summary_title, "🔥 XUẤT SẮC! HOÀN THÀNH 100% TOÀN BỘ MỤC TIÊU HÔM NAY")
+                    setTextViewText(R.id.notif_expanded_summary_body, "Kỷ luật thép đã được giữ vững! Chuỗi $currentStreak ngày liên tiếp không một ngày lơ là.")
+                    setTextColor(R.id.notif_expanded_summary_title, android.graphics.Color.parseColor("#48BB78"))
+                } else {
+                    val pendingCount = (totalCount - completedCount).coerceAtLeast(0)
+                    setTextViewText(R.id.notif_expanded_summary_title, "⚠️ CÒN $pendingCount MỤC CHƯA HOÀN THÀNH HÔM NAY:")
+                    setTextViewText(R.id.notif_expanded_summary_body, pendingHabitsText)
+                    setTextColor(R.id.notif_expanded_summary_title, android.graphics.Color.parseColor("#FFA726"))
+                }
+
+                // Gắn PendingIntent cho 3 nút bấm nhanh trên RemoteViews
+                setOnClickPendingIntent(R.id.notif_btn_open_app, openAppPendingIntent)
+                setOnClickPendingIntent(R.id.notif_btn_add_water, addWaterPendingIntent)
+                setOnClickPendingIntent(R.id.notif_btn_add_steps, addStepsPendingIntent)
+            }
+
+            val notification = NotificationCompat.Builder(context, CHANNEL_ID)
+                .setSmallIcon(R.drawable.ic_stat_flame)
+                .setStyle(NotificationCompat.DecoratedCustomViewStyle())
+                .setContentTitle(fallbackTitle)
+                .setContentText("💧 ${numberFormat.format(waterMl)}/2000ml • 👟 ${numberFormat.format(stepCount)}/10.000 bước")
+                .setSubText("Ngày $dayNumber/$totalDays • 🔥 $currentStreak ngày")
+                .setProgress(100, percent, false)
+                .setCustomContentView(collapsedViews)
+                .setCustomBigContentView(expandedViews)
+                .addAction(R.drawable.ic_stat_flame, "💧 Nạp 250ml nước", addWaterPendingIntent)
+                .addAction(R.drawable.ic_stat_flame, "👟 +500 bước", addStepsPendingIntent)
+                .setContentIntent(openAppPendingIntent)
+                .setDeleteIntent(deletePendingIntent)
+                .setOngoing(true)
+                .setAutoCancel(false)
+                .setPriority(NotificationCompat.PRIORITY_MAX)
+                .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+                .setCategory(NotificationCompat.CATEGORY_STATUS)
+                .setOnlyAlertOnce(true)
+                .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
+                .setLocalOnly(true)
+                .build()
+
+            notification.flags = notification.flags or
+                    Notification.FLAG_ONGOING_EVENT or
+                    Notification.FLAG_NO_CLEAR or
+                    Notification.FLAG_FOREGROUND_SERVICE
+
+            notification
+        } catch (_: Exception) {
+            // Fallback chuẩn BigTextStyle nếu thiết bị không tương thích Custom RemoteViews
+            NotificationCompat.Builder(context, CHANNEL_ID)
+                .setSmallIcon(R.drawable.ic_stat_flame)
+                .setContentTitle(fallbackTitle)
+                .setContentText("👟 ${numberFormat.format(stepCount)}/10k bước • 💧 ${numberFormat.format(waterMl)}/2000ml")
+                .setStyle(NotificationCompat.BigTextStyle().bigText(bigTextSummary))
+                .setProgress(100, percent, false)
+                .addAction(R.drawable.ic_stat_flame, "💧 Nạp 250ml nước", addWaterPendingIntent)
+                .addAction(R.drawable.ic_stat_flame, "👟 +500 bước", addStepsPendingIntent)
+                .setContentIntent(openAppPendingIntent)
+                .setOngoing(true)
+                .setOnlyAlertOnce(true)
+                .build()
+        }
     }
 
     fun postOrUpdateNotification(context: Context) {
@@ -263,9 +296,15 @@ object HabitNotificationHelper {
                 val currentStreak = user?.currentStreak ?: 0
                 val isCompletedAll = pendingHabits.isEmpty() && dailyHabits.isNotEmpty()
 
-                // Key metrics
+                // Lấy số bước lớn nhất giữa Room Database và bộ nhớ đệm của StepCounterManager
                 val stepLog = logsMap["pedometer_10k"]
-                val stepCount = stepLog?.progressValue ?: 0
+                val persistedSensorSteps = try {
+                    context.getSharedPreferences(StepCounterManager.PREFS_PEDOMETER, Context.MODE_PRIVATE)
+                        .getInt(StepCounterManager.KEY_TODAY_TOTAL_STEPS, 0)
+                } catch (_: Exception) {
+                    0
+                }
+                val stepCount = maxOf(stepLog?.progressValue ?: 0, persistedSensorSteps)
 
                 val waterLog = logsMap["water_2l"]
                 val waterMl = waterLog?.progressValue ?: 0
@@ -286,7 +325,7 @@ object HabitNotificationHelper {
                         }
                     }
                     val more = if (pendingHabits.size > 5) "\n(+${pendingHabits.size - 5} mục khác)" else ""
-                    "$items$more\n👉 Chạm để vào Dashboard hoặc bấm nút thao tác nhanh bên dưới!"
+                    "$items$more\n👉 Bấm '💧 +250ML' hoặc '👟 +500 BƯỚC' bên dưới để cập nhật nhanh!"
                 } else {
                     "Toàn bộ mục tiêu trong ngày đã hoàn tất xuất sắc! Kỷ luật thép được duy trì."
                 }
@@ -308,11 +347,9 @@ object HabitNotificationHelper {
                     isCompletedAll = isCompletedAll
                 )
 
-                // 1. If foreground service is running, update it via startForeground directly!
                 if (PersistentHabitNotificationService.isServiceRunning) {
                     PersistentHabitNotificationService.updateIfRunning(notification)
                 } else {
-                    // If not running, ensure foreground service starts immediately
                     val intent = Intent(context, PersistentHabitNotificationService::class.java)
                     try {
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -323,7 +360,6 @@ object HabitNotificationHelper {
                     } catch (_: Exception) {}
                 }
 
-                // 2. Also notify via NotificationManager to ensure synchronous system sync
                 val manager = NotificationManagerCompat.from(context)
                 manager.notify(NOTIFICATION_ID, notification)
             } catch (_: Exception) {}

@@ -6,6 +6,7 @@ import com.example.data.local.dao.HabitDao
 import com.example.data.local.dao.JournalDao
 import com.example.data.local.dao.TimeAllocationDao
 import com.example.data.local.dao.UserDao
+import com.example.data.local.entity.AccountWalletEntity
 import com.example.data.local.entity.DailyJournalEntity
 import com.example.data.local.entity.DailyLogEntity
 import com.example.data.local.entity.DebtEntity
@@ -38,6 +39,9 @@ class HabitRepository(
     val allDebtsFlow: Flow<List<DebtEntity>> = financeDao.getAllDebts()
     val allSavingsGoalsFlow: Flow<List<SavingsGoalEntity>> = financeDao.getAllSavingsGoals()
     val totalGoalsSavedFlow: Flow<Long?> = financeDao.getTotalGoalsSavedAmount()
+
+    val allWalletsFlow: Flow<List<AccountWalletEntity>> = financeDao.getAllWallets()
+    val totalWalletBalanceFlow: Flow<Long?> = financeDao.getTotalWalletBalance()
 
     val allJournalsFlow: Flow<List<DailyJournalEntity>> = journalDao.getAllJournals()
     val completedJournalCountFlow: Flow<Int> = journalDao.getCompletedJournalCount()
@@ -244,6 +248,57 @@ class HabitRepository(
             )
         }
 
+        // PHẦN 2: Seed các Ví điện tử & Ngân hàng mặc định (MoMo, Cake, Vietcombank, MB Bank, TNEX, TPBank)
+        try {
+            if (financeDao.getWalletCount() == 0) {
+                val defaultWallets = listOf(
+                    AccountWalletEntity(
+                        name = "MoMo",
+                        balance = 2_500_000L,
+                        iconType = "MOMO",
+                        packageKeywords = "momo,com.mservice.momotransfer,vn.momo.platform"
+                    ),
+                    AccountWalletEntity(
+                        name = "Cake",
+                        balance = 5_000_000L,
+                        iconType = "CAKE",
+                        packageKeywords = "cake,vn.cake,com.vpbank.cake"
+                    ),
+                    AccountWalletEntity(
+                        name = "Vietcombank",
+                        balance = 15_000_000L,
+                        iconType = "VCB",
+                        packageKeywords = "vietcombank,vcb,com.vcb"
+                    ),
+                    AccountWalletEntity(
+                        name = "MB Bank",
+                        balance = 8_000_000L,
+                        iconType = "MB",
+                        packageKeywords = "mb bank,mbbank,com.mbmobile"
+                    ),
+                    AccountWalletEntity(
+                        name = "TNEX",
+                        balance = 3_500_000L,
+                        iconType = "TNEX",
+                        packageKeywords = "tnex,com.msb.tnex"
+                    ),
+                    AccountWalletEntity(
+                        name = "TPBank",
+                        balance = 4_000_000L,
+                        iconType = "TPB",
+                        packageKeywords = "tpbank,tpb,com.tpb.mb.gprsandroid"
+                    ),
+                    AccountWalletEntity(
+                        name = "Tiền mặt",
+                        balance = 1_500_000L,
+                        iconType = "CASH",
+                        packageKeywords = "tien mat,cash"
+                    )
+                )
+                defaultWallets.forEach { financeDao.insertWallet(it) }
+            }
+        } catch (_: Exception) {}
+
         // Seed default 24h Time Allocation for today if empty
         val todayEpoch = LocalDate.now().toEpochDay()
         ensureTimeAllocationsForDate(todayEpoch)
@@ -331,6 +386,11 @@ class HabitRepository(
         evaluateStreak(dateEpochDay)
     }
 
+    /**
+     * PHẦN 2: Khi có giao dịch mới (từ NotificationListenerService hoặc nhập tay),
+     * tự động cộng/trừ tiền vào đúng Ví / Ngân hàng (AccountWalletEntity) tương ứng
+     * và lưu vào FinanceTransactionEntity.
+     */
     suspend fun addFinancialTransaction(
         amount: Long,
         type: String,
@@ -361,6 +421,26 @@ class HabitRepository(
         val expenseDelta = if (type == "EXPENSE") amount else 0L
         userDao.updateFinanceTotals(savings = savings, income = incomeDelta, expense = expenseDelta)
 
+        // Tự động cộng/trừ số dư vào đúng AccountWalletEntity tương ứng
+        try {
+            val wallets = financeDao.getAllWalletsOnce()
+            if (wallets.isNotEmpty() && bankSource.isNotBlank() && bankSource != "Chuyển Quỹ") {
+                val normalizedSource = bankSource.trim().lowercase()
+                val matchedWallet = wallets.firstOrNull { w ->
+                    w.name.equals(bankSource.trim(), ignoreCase = true) ||
+                            w.name.lowercase().contains(normalizedSource) ||
+                            normalizedSource.contains(w.name.lowercase()) ||
+                            w.packageKeywords.lowercase().split(",").any { kw ->
+                                kw.isNotBlank() && normalizedSource.contains(kw.trim())
+                            }
+                }
+                val delta = if (type == "INCOME") (amount - savings) else -amount
+                if (matchedWallet != null) {
+                    financeDao.adjustWalletBalance(matchedWallet.id, delta)
+                }
+            }
+        } catch (_: Exception) {}
+
         if (savings > 0L) {
             val goals = financeDao.getAllSavingsGoals().firstOrNull().orEmpty()
             val primaryGoal = goals.firstOrNull()
@@ -375,7 +455,34 @@ class HabitRepository(
         financeDao.deleteTransaction(id)
     }
 
-    // Debt Management (Cho vay / Đi mượn)
+    // PHẦN 2: Quản lý Ví / Ngân hàng (AccountWalletEntity)
+    suspend fun addWallet(
+        name: String,
+        balance: Long,
+        iconType: String = "BANK",
+        packageKeywords: String = ""
+    ) {
+        if (name.isBlank()) return
+        val autoKeywords = packageKeywords.ifBlank { name.trim().lowercase() }
+        financeDao.insertWallet(
+            AccountWalletEntity(
+                name = name.trim(),
+                balance = balance.coerceAtLeast(0L),
+                iconType = iconType,
+                packageKeywords = autoKeywords
+            )
+        )
+    }
+
+    suspend fun updateWalletBalance(walletId: Long, newBalance: Long) {
+        financeDao.updateWalletBalance(walletId, newBalance)
+    }
+
+    suspend fun deleteWallet(walletId: Long) {
+        financeDao.deleteWallet(walletId)
+    }
+
+    // PHẦN 3: Quản lý Khoản Vay / Nợ (LoanDebtEntity / DebtEntity)
     suspend fun addDebt(
         type: String,
         personName: String,
@@ -388,6 +495,14 @@ class HabitRepository(
                 type = type,
                 personName = personName,
                 amount = amount,
+                monthlyInstallment = amount,
+                totalMonths = 1,
+                paidMonths = 0,
+                dueDayOfMonth = try {
+                    LocalDate.ofEpochDay(dueDateEpochDay).dayOfMonth
+                } catch (_: Exception) {
+                    15
+                },
                 paidAmount = 0L,
                 dueDateEpochDay = dueDateEpochDay,
                 createdDateEpochDay = LocalDate.now().toEpochDay(),
@@ -397,10 +512,96 @@ class HabitRepository(
         )
     }
 
+    suspend fun addLoanDebt(
+        loanType: String, // "BANK", "FINANCE_COMPANY", "FRIEND"
+        lenderName: String,
+        totalLoanAmount: Long,
+        monthlyInstallmentAmount: Long,
+        totalMonths: Int,
+        paidMonths: Int,
+        dueDayOfMonth: Int,
+        note: String
+    ) {
+        val safeTotalMonths = totalMonths.coerceAtLeast(1)
+        val safePaidMonths = paidMonths.coerceIn(0, safeTotalMonths)
+        val safeDueDay = dueDayOfMonth.coerceIn(1, 31)
+        val safeInstallment = if (monthlyInstallmentAmount > 0L) {
+            monthlyInstallmentAmount
+        } else {
+            (totalLoanAmount / safeTotalMonths.toLong()).coerceAtLeast(1L)
+        }
+        val initialPaidAmount = safeInstallment * safePaidMonths.toLong()
+        val isAlreadySettled = safePaidMonths >= safeTotalMonths
+
+        val today = LocalDate.now()
+        val nextDueEpoch = try {
+            val dayInThisMonth = safeDueDay.coerceAtMost(today.lengthOfMonth())
+            val candidate = today.withDayOfMonth(dayInThisMonth)
+            if (!candidate.isBefore(today)) {
+                candidate.toEpochDay()
+            } else {
+                val nextMonth = today.plusMonths(1)
+                nextMonth.withDayOfMonth(safeDueDay.coerceAtMost(nextMonth.lengthOfMonth())).toEpochDay()
+            }
+        } catch (_: Exception) {
+            today.plusDays(15).toEpochDay()
+        }
+
+        financeDao.insertDebt(
+            DebtEntity(
+                type = loanType,
+                personName = lenderName.trim(),
+                amount = totalLoanAmount,
+                monthlyInstallment = safeInstallment,
+                totalMonths = safeTotalMonths,
+                paidMonths = safePaidMonths,
+                dueDayOfMonth = safeDueDay,
+                paidAmount = initialPaidAmount,
+                dueDateEpochDay = nextDueEpoch,
+                createdDateEpochDay = today.toEpochDay(),
+                isSettled = isAlreadySettled,
+                note = note
+            )
+        )
+    }
+
+    suspend fun payLoanMonthlyInstallment(debt: DebtEntity, walletName: String = "Vietcombank") {
+        if (debt.isSettled) return
+        val newPaidMonths = (debt.paidMonths + 1).coerceAtMost(debt.totalMonths.coerceAtLeast(1))
+        val installmentAmt = if (debt.monthlyInstallment > 0L) {
+            debt.monthlyInstallment
+        } else {
+            (debt.amount / debt.totalMonths.coerceAtLeast(1).toLong()).coerceAtLeast(1L)
+        }
+        val newPaidAmount = (debt.calculatedPaidAmount + installmentAmt).coerceAtMost(debt.totalPayableAmount)
+        val newSettled = newPaidMonths >= debt.totalMonths || newPaidAmount >= debt.totalPayableAmount
+
+        financeDao.updateLoanInstallmentProgress(
+            id = debt.id,
+            isSettled = newSettled,
+            paidAmount = newPaidAmount,
+            paidMonths = newPaidMonths
+        )
+
+        // Tự động ghi nhận giao dịch trả nợ kỳ tháng này và trừ tiền ví
+        addFinancialTransaction(
+            amount = installmentAmt,
+            type = "EXPENSE",
+            category = "Trả nợ khoản vay",
+            bankSource = walletName,
+            description = "Đóng kỳ ${newPaidMonths}/${debt.totalMonths} - ${debt.personName}",
+            isSalary = false
+        )
+    }
+
     suspend fun toggleDebtSettled(debt: DebtEntity) {
         val newSettled = !debt.isSettled
-        val newPaid = if (newSettled) debt.amount else 0L
+        val newPaid = if (newSettled) debt.totalPayableAmount else 0L
+        val newPaidMonths = if (newSettled) debt.totalMonths else 0
         financeDao.updateDebtStatus(debt.id, newSettled, newPaid)
+        try {
+            financeDao.updateLoanInstallmentProgress(debt.id, newSettled, newPaid, newPaidMonths)
+        } catch (_: Exception) {}
     }
 
     suspend fun deleteDebt(id: Long) {
